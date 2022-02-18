@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgl - sss brain</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<link type="text/css" rel="stylesheet" href="main.css">
+	</head>
+	<body>
+        <div id="info"><a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> webgl -  multiple canvases - grid</div>
+
+        
+
+
+		<script id="vertexShader" type="x-shader/x-vertex">
+
+			varying vec2 vUv;
+
+			void main() {
+
+				vUv = uv;
+				gl_Position =  vec4( position, 1.0 );
+
+			}
+
+		</script>
+
+		<script id="fragment_shader_first_pass" type="x-shader/x-fragment">
+
+			#define MAX_SSS_SAMPLES 65
+
+			varying vec2 vUv;
+			uniform sampler2D tDiffuse;
+			uniform sampler2D tSpecular;
+			uniform sampler2D tDepth;
+			uniform sampler2D tNoise;
+			uniform vec4 kernel[MAX_SSS_SAMPLES];
+			uniform float Radii_max_radius;
+			uniform mat4 ProjectionMatrix;
+			uniform float Radius;
+			uniform int Samples;
+			uniform float sssJitterThreshold;
+
+			#define M_2PI 6.28318530717958647692
+			#define M_PI_2 1.57079632679489661923
+
+			float get_view_z_from_depth(float depth) {
+				float d = 2.0 * depth - 1.0;
+    			return -ProjectionMatrix[3][2] / (d + ProjectionMatrix[2][2]);
+			}
+
+			void main() {
+				vec2 uvs = vUv;
+				vec3 sss_irradiance = texture( tDiffuse, uvs ).rgb;
+				float sss_radius = Radius;
+				int sss_samples = Samples;
+				float depth = 1.0 - texture(tDepth, uvs).r;
+				float depth_view = get_view_z_from_depth(depth);
+
+				float rand = texture(tNoise, uvs).r;
+				float angle = M_2PI * rand + M_PI_2;
+				vec2 dir = vec2(1.0, 0.0);
+				vec2 dir_rand = vec2(cos(angle), sin(angle));
+				
+				float homcoord = ProjectionMatrix[2][3] * depth_view + ProjectionMatrix[3][3];
+  				vec2 scale = vec2(ProjectionMatrix[0][0], ProjectionMatrix[1][1]) * sss_radius / homcoord;
+  				vec2 finalStep = scale * Radii_max_radius;
+  				finalStep *= 0.5; /* samples range -1..1 */
+
+				vec3 accum = sss_irradiance * kernel[0].rgb;
+
+				for (int i = 1; i < sss_samples; i++){
+					//vec2 sample_uv = uvs + kernel[i].a * finalStep * ((abs(kernel[i].a) > sssJitterThreshold) ? dir : dir_rand);
+					vec2 sample_uv = uvs + kernel[i].a * finalStep * dir;
+					vec3 color = texture(tDiffuse, sample_uv).rgb;
+					float sample_depth = 1.0 - texture(tDepth, sample_uv).r;
+					sample_depth = get_view_z_from_depth(sample_depth);
+
+					/* Depth correction factor. */
+    				float depth_delta = depth_view - sample_depth;
+					//float s = clamp(1.0 - exp(-(depth_delta * depth_delta) / (2.0 * sss_radius)), 0.0, 1.0);
+					float s = clamp(1.0 - exp(-(depth_delta) / (2.0 * sss_radius)), 0.0, 1.0);
+
+					/* Out of view samples. */
+					if (any(lessThan(sample_uv, vec2(0.0))) || any(greaterThan(sample_uv, vec2(1.0)))) {
+						s = 1.0;
+					}
+
+					/* Mix with first sample in failure case and apply kernel color. */
+    				accum += kernel[i].rgb * mix(color, sss_irradiance, s);
+				}
+
+				gl_FragColor = vec4(accum, 1.0);
+			}
+
+		</script>
+
+		<script id="fragment_shader_second_pass" type="x-shader/x-fragment">
+
+			#define MAX_SSS_SAMPLES 65
+
+			varying vec2 vUv;
+			uniform sampler2D tDiffuse;
+			uniform sampler2D tSpecular;
+			uniform sampler2D sssAlbedo;
+			uniform sampler2D tDepth;
+			uniform sampler2D tNoise;
+			uniform vec4 kernel[MAX_SSS_SAMPLES];
+			uniform float Radii_max_radius;
+			uniform mat4 ProjectionMatrix;
+			uniform float Radius;
+			uniform int Samples;
+			uniform float sssJitterThreshold;
+
+			#define M_2PI 6.28318530717958647692
+			#define M_PI_2 1.57079632679489661923
+			#define saturate( a ) clamp( a, 0.0, 1.0 )
+
+			float get_view_z_from_depth(float depth) {
+				float d = 2.0 * depth - 1.0;
+    			return -ProjectionMatrix[3][2] / (d + ProjectionMatrix[2][2]);
+			}
+
+			void main() {
+				vec2 uvs = vUv;
+				vec3 sss_irradiance = texture( tDiffuse, uvs ).rgb;
+				vec3 sss_specular = texture( tSpecular, uvs ).rgb;
+				float sss_radius = Radius;
+				int sss_samples = Samples;
+				float depth = 1.0 - texture(tDepth, uvs).r;
+				float depth_view = get_view_z_from_depth(depth);
+
+				float rand = texture(tNoise, uvs).r;
+				float angle = M_2PI * rand;
+  				vec2 dir = vec2(0.0, 1.0);
+				vec2 dir_rand = vec2(cos(angle), sin(angle));
+
+				float homcoord = ProjectionMatrix[2][3] * depth_view + ProjectionMatrix[3][3];
+  				vec2 scale = vec2(ProjectionMatrix[0][0], ProjectionMatrix[1][1]) * sss_radius / homcoord;
+  				vec2 finalStep = scale * Radii_max_radius;
+  				finalStep *= 0.5; /* samples range -1..1 */
+
+				vec3 accum = sss_irradiance * kernel[0].rgb;
+
+				for (int i = 1; i < sss_samples; i++){
+					//vec2 sample_uv = uvs + kernel[i].a * finalStep * ((abs(kernel[i].a) > sssJitterThreshold) ? dir : dir_rand);
+					vec2 sample_uv = uvs + kernel[i].a * finalStep * dir;
+					vec3 color = texture(tDiffuse, sample_uv).rgb;
+					float sample_depth = 1.0 - texture(tDepth, sample_uv).r;
+					sample_depth = get_view_z_from_depth(sample_depth);
+
+					/* Depth correction factor. */
+    				float depth_delta = depth_view - sample_depth;
+					//float s = clamp(1.0 - exp(-(depth_delta * depth_delta) / (2.0 * sss_radius)), 0.0, 1.0);
+					float s = clamp(1.0 - exp(-(depth_delta) / (2.0 * sss_radius)), 0.0, 1.0);
+
+					/* Out of view samples. */
+					if (any(lessThan(sample_uv, vec2(0.0))) || any(greaterThan(sample_uv, vec2(1.0)))) {
+						s = 1.0;
+					}
+
+					/* Mix with first sample in failure case and apply kernel color. */
+    				accum += kernel[i].rgb * mix(color, sss_irradiance, s);
+				}
+
+				//gl_FragColor = vec4(accum, 1.0);
+				//gl_FragColor = vec4(accum + sss_specular, 1.0) ;
+				gl_FragColor = vec4(accum * texture(sssAlbedo, uvs).rgb + sss_specular, 1.0) ;
+				gl_FragColor.rgb = saturate( gl_FragColor.rgb / ( vec3( 1.0 ) + gl_FragColor.rgb ) );
+				gl_FragColor = linearToOutputTexel( gl_FragColor );
+			}
+
+		</script>
+
+		<script id="vertex_shader_depth" type="x-shader/x-vertex">
+
+			varying vec2 vUv;
+
+			void main() {
+
+				vUv = uv;
+				gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+
+			}
+
+		</script>
+		<script id="fragment_shader_depth" type="x-shader/x-fragment">
+
+			float LinearizeDepth(float depth) 
+			{
+				float z = depth * 2.0 - 1.0; // back to NDC 
+				return (2.0 * 1.0 * 5000.0) / (5000.0 + 1.0 - z * (5000.0 - 1.0));	
+			}
+
+			void main() {
+				//float depth = LinearizeDepth(gl_FragCoord.z) / 5000.0;
+				//gl_FragColor = vec4(vec3(depth), 1.0);
+				float depth = 1.0 - gl_FragCoord.z;
+				gl_FragColor = vec4(vec3(depth), 1.0);
+			}
+
+		</script>
+
+		<script src="build/three.js"></script>
+        <script src="examples/js/controls/OrbitControls.js"></script>
+        <script src="examples/js/libs/stats.min.js"></script>
+        <script src="examples/js/libs/fflate.min.js"></script>
+        <script src="examples/js/loaders/FBXLoader.js"></script>
+		<script src="examples/js/math/SimplexNoise.js"></script>
+		<script src="renderers/shaders/SSSShader.js"></script>
+		<script src="renderers/SSSPass.js"></script>
+		<script src="sss_brain.js"></script>
+	</body>
+</html>

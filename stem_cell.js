@@ -19,7 +19,7 @@ const nucleusDepthList = [];
 const axonPointsList = [];
 
 const axon = new THREE.Axon({
-    AxonCount : 8,
+    AxonCount : 12,
     AxonRootRotAxisAngleMax: 10,
     AxonRadiusMax: 0.15,
     AxonRadiusMin: 0.003,
@@ -250,6 +250,9 @@ function init(){
 
 }
 
+const rtWidth_cell = window.innerWidth * 2;
+const rtHeight_cell = window.innerHeight * 2;
+
 function initRenderTarget(){
     renderTargetNucleusDepth = new THREE.WebGLRenderTarget( window.innerWidth * 2, window.innerHeight * 2, 
         { minFilter: THREE.LinearFilter, 
@@ -259,7 +262,7 @@ function initRenderTarget(){
             type: THREE.FloatType,
         } );
 
-    renderTargetCell = new THREE.WebGLRenderTarget( window.innerWidth * 2, window.innerHeight * 2, 
+    renderTargetCell = new THREE.WebGLRenderTarget( rtWidth_cell, rtHeight_cell, 
         { minFilter: THREE.LinearFilter, 
           magFilter: THREE.NearestFilter,
           format: THREE.RGBFormat,
@@ -438,8 +441,7 @@ function initMaterial(){
     });
 
     spherePointsMaterial = new THREE.SpherePointsMaterial({
-        size: 0.1, 
-        // color: 0xffffff, 
+        size: 0.15, 
         map: pointTexture,
         blending: THREE.CustomBlending, 
         blendSrc: THREE.SrcAlphaFactor,
@@ -448,15 +450,12 @@ function initMaterial(){
         depthTest: false, 
         transparent: true,
         vertexColors: true,
-        // alphaTest: 0.001,
-        // premultipliedAlpha: true, 
         noiseMap: noiseTexture,
     });
     spherePointsMaterial.time = 0;
 
     axonPointsMaterial = new THREE.AxonPointsMaterial({
         size: 0.15, 
-        // color: 0xffffff, 
         map: pointTexture,
         blending: THREE.CustomBlending, 
         blendSrc: THREE.SrcAlphaFactor,
@@ -465,7 +464,6 @@ function initMaterial(){
         depthTest: false, 
         transparent: true,
         vertexColors: true,
-        // alphaTest: 0.001,
 
         rootDisplacementScale: 0.3,
         rootDisplacementBias: 0.0,
@@ -474,7 +472,7 @@ function initMaterial(){
         noiseMap: noiseTexture,
         depthMap: renderTargetNucleusDepth.texture,
         layerMax: axon.AxonLayerMaxCount,
-        viewPort: new THREE.Vector2(window.innerWidth, window.innerHeight),
+        viewPort: new THREE.Vector2(rtWidth_cell, rtHeight_cell),
     });
     axonPointsMaterial.rootDisplacementFac = 0;
     axonPointsMaterial.time = 0;
@@ -604,7 +602,7 @@ function updateAxonListFac(elapsedTime, list, axonPointsList){
 
 function render(){
 
-    renderer.setViewport( 0, 0, window.innerWidth, window.innerHeight );
+    
 
     renderer.setRenderTarget( renderTargetNucleusDepth );
     // renderer.setRenderTarget( null );
@@ -612,10 +610,13 @@ function render(){
     renderer.render( sceneNucleusDepth, camera );
 
     renderer.setRenderTarget( renderTargetCell );
+    // renderer.setRenderTarget( null );
     renderer.clear();
     renderer.render( sceneCells, camera );
 
-    // ssBlurMFMaterial.uniforms[ 'mousePos' ].value = mousePos;
+    renderer.setViewport( 0, 0, window.innerWidth, window.innerHeight );
+
+    ssBlurMFMaterial.uniforms[ 'mousePos' ].value = mousePos;
     renderer.setRenderTarget( null );
     renderer.clear();
     renderer.render( sceneScreen, camera );

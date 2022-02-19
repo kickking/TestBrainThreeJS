@@ -90,12 +90,12 @@
             shader.vertexShader = shader.vertexShader.replace(token, token + insert);
 
 
-            token = '#include <project_vertex>';
-            insert = /* glsl */`
-                vec4 clip = gl_Position;
-                ndcZ = clip.z / clip.w;
-        `;
-            shader.vertexShader = shader.vertexShader.replace(token, token + insert);
+        //     token = '#include <project_vertex>';
+        //     insert = /* glsl */`
+        //         vec4 clip = gl_Position;
+        //         ndcZ = clip.z / clip.w;
+        // `;
+        //     shader.vertexShader = shader.vertexShader.replace(token, token + insert);
 
 
             token = 'gl_PointSize = size;';
@@ -108,38 +108,24 @@
             token = '#include <common>';
             insert = /* glsl */`
                 varying vec2 vUv;
-                varying float ndcZ;
+                // varying float ndcZ;
                 uniform sampler2D depthMap;
                 uniform vec2 viewPort;
         `;
             shader.fragmentShader = shader.fragmentShader.replace(token, token + insert);
 
-        //     token = 'void main() {';
-        //     insert = /* glsl */`
-        //         vec2 uvs = vUv;
-        //         float winZ = ndcZ / 2.0 + 0.5;
-        //         float depth = texture(depthMap, gl_FragCoord.xy / viewPort).r;
-        //         if(depth > gl_FragCoord.z){
-        //         // if(depth > winZ){
-        //             discard;
-        //         }
-        // `;
-        //     shader.fragmentShader = shader.fragmentShader.replace(token, token + insert);
-
-            token = 'outgoingLight = diffuseColor.rgb;';
+            token = 'void main() {';
             insert = /* glsl */`
                 vec2 uvs = vUv;
-                float winZ = ndcZ / 2.0 + 0.5;
-                float depth = texture(depthMap, gl_FragCoord.xy / (viewPort * 2.0)).r;
-                if(depth > gl_FragCoord.z){
+                // float winZ = ndcZ / 2.0 + 0.5;
+                float depth = texture(depthMap, gl_FragCoord.xy / viewPort).r;
+                if(depth > (1.0 - gl_FragCoord.z)){
                 // if(depth > winZ){
-                    // discard;
-                    outgoingLight = vec3(0.0, 1.0, 0.0);
+                    discard;
                 }
-                // outgoingLight = vec3(winZ);
-                
         `;
             shader.fragmentShader = shader.fragmentShader.replace(token, token + insert);
+
 
         }
 

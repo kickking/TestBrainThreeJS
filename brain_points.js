@@ -104,8 +104,8 @@ function init(){
     const axesHelper = new THREE.AxesHelper(1000);
     sceneBrain.add(axesHelper);
 
-    controlsBrain = new THREE.OrbitControls( cameraBrain, container );
-    controlsBrain.target.set( controlTarget.x, controlTarget.y, controlTarget.z );
+    // controlsBrain = new THREE.OrbitControls( cameraBrain, container );
+    // controlsBrain.target.set( controlTarget.x, controlTarget.y, controlTarget.z );
 
     stats = new Stats();
     container.appendChild( stats.dom );
@@ -171,11 +171,11 @@ function animate() {
 
     requestAnimationFrame( animate );
 
-    controlsBrain.update(); // required if damping enabled
+    // controlsBrain.update(); // required if damping enabled
 
     stats.update();
 
-    // updateCamera();
+    updateCamera();
 
     render();
 

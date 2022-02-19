@@ -55,12 +55,17 @@ let stats;
 let gui;
 
 const environments = {
-    'loft_hall': { filename: 'photo_studio_loft_hall_1k.hdr' },        
-    'artist_workshop': { filename: 'artist_workshop_1k.hdr' },
-    'christmas': { filename: 'christmas_photo_studio_01_1k.hdr' },
-    'cayley_interior': { filename: 'cayley_interior_1k.hdr' },
+    // 'loft_hall': { filename: 'photo_studio_loft_hall_1k.hdr' },        
+    // 'artist_workshop': { filename: 'artist_workshop_1k.hdr' },
+    // 'christmas': { filename: 'christmas_photo_studio_01_1k.hdr' },
+    // 'cayley_interior': { filename: 'cayley_interior_1k.hdr' },
+    'dikhololo_night': { filename: 'dikhololo_night_1k.hdr' },
+    'quarry': { filename: 'quarry_04_1k.hdr' },
     
 };
+
+const cameraPos = new THREE.Vector3(0,0,5.5);
+const cameraTarget = new THREE.Vector3(0,-0.0,0);
 
 function init(){
     const container = document.createElement( 'div' );
@@ -73,7 +78,7 @@ function init(){
     sceneNucleusDepth = new THREE.Scene();
 
     camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.25, 100 );
-    camera.position.set( 0, 0, 5.5 );
+    camera.position.set( cameraPos.x, cameraPos.y, cameraPos.z );
 
     initRenderTarget();
 
@@ -238,7 +243,7 @@ function init(){
     const axesHelper = new THREE.AxesHelper(1000);
     sceneScreen.add(axesHelper);
 
-    controls = new THREE.OrbitControls( camera, container );
+    // controls = new THREE.OrbitControls( camera, container );
 
     stats = new Stats();
     container.appendChild( stats.dom );
@@ -500,11 +505,52 @@ function loadEnvironment( name ) {
 
 const mousePos = new THREE.Vector2(0,0);
 
+let mouseX = 0, mouseY = 0;
+let windowHalfX = window.innerWidth / 2;
+let windowHalfY = window.innerHeight / 2;
+
+let targetCameraX = cameraPos.x;
+let targetCameraY = cameraPos.y; 
+let targetCameraZ = cameraPos.z;
+const mouseMovFac = 0.0005;
+
+let cameraAccFac = 0.01;
+let cameraAccMin = 0.0001;
+let cameraDis = 0.0001;
+
 function onPointerMove( event ) {
 
     if ( event.isPrimary === false ) return;
 
     mousePos.set(event.clientX, event.clientY);
+
+    //add camera follow pointer move
+    mouseX = event.clientX - windowHalfX;
+    mouseY = event.clientY - windowHalfY;
+
+    // targetCameraZ = cameraPos.z - mouseX * mouseMovFac;
+    // targetCameraY = cameraPos.y - mouseY * mouseMovFac;
+    // targetCameraX = cameraPos.x + mouseY * mouseMovFac;
+    targetCameraX = cameraPos.x + mouseX * mouseMovFac;
+    targetCameraY = cameraPos.y - mouseY * mouseMovFac;
+    // targetCameraZ = cameraPos.z + mouseY * mouseMovFac;
+}
+
+function updateCamera(){
+    let accX = Math.abs(camera.position.x - targetCameraX) * cameraAccFac;
+    accX = accX > cameraAccMin ? accX : 0;
+
+    let accY = Math.abs(camera.position.y - targetCameraY) * cameraAccFac;
+    accY = accY > cameraAccMin ? accY : 0;
+
+    let accZ = Math.abs(camera.position.z - targetCameraZ) * cameraAccFac;
+    accZ = accZ > cameraAccMin ? accZ : 0;
+
+    camera.position.x += Math.sign(targetCameraX - camera.position.x) * accX;
+    camera.position.y += Math.sign(targetCameraY - camera.position.y) * accY;
+    camera.position.z += Math.sign(targetCameraZ - camera.position.z) * accZ;
+
+    camera.lookAt( cameraTarget );
 
 }
 
@@ -536,7 +582,7 @@ const clock = new THREE.Clock();
 function animate(){
     requestAnimationFrame( animate );
 
-    controls.update();
+    // controls.update();
 
     stats.update();
 
@@ -544,6 +590,7 @@ function animate(){
     
     updateFac();
 
+    updateCamera();
     render();
 }
 
@@ -600,9 +647,8 @@ function updateAxonListFac(elapsedTime, list, axonPointsList){
     }
 }
 
-function render(){
 
-    
+function render(){
 
     renderer.setRenderTarget( renderTargetNucleusDepth );
     // renderer.setRenderTarget( null );

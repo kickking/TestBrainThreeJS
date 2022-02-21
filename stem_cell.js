@@ -1,9 +1,11 @@
 let sceneCells, sceneScreen;
 let sceneNucleusDepth;
+let sceneCSS;
 
 let camera;
 
 let renderer;
+let rendererCSS;
 
 let loadDone = false;
 
@@ -17,6 +19,7 @@ const membraneList = [];
 const nucleusList = [];
 const nucleusDepthList = [];
 const axonPointsList = [];
+const objectCSSList = [];
 
 const axon = new THREE.Axon({
     AxonCount : 12,
@@ -67,15 +70,31 @@ const environments = {
 const cameraPos = new THREE.Vector3(0,0,5.5);
 const cameraTarget = new THREE.Vector3(0,-0.0,0);
 
+const cellData = [
+    [1.0, 1.0, 1.0], "一字长蛇阵",
+    [0.8, -1.7, -1.6], "二龙出水阵",
+    [-1.0, -0.9, -1.5], "天地三才阵",
+    [-1.2, 1.1, 0.1], "四门兜底阵",
+    [-2.0, 0.3, 2.0], "五虎群羊阵",
+    [1.5, -0.4, 2.3], "六丁六甲阵",
+    [-2.4, -0.9, 0.3], "七星北斗阵",
+    [-0.0, 0.3, 0.0], "八门金锁阵",
+    [4.0, 1.5, -1.8], "九字连环阵",
+];
+
+const cellScale = 0.2;
+const cellParticleCount = 2000;
+const cellParticleDisRaduisMin = 1.33 * cellScale;
+const cellParticleDisRaduisMax = 1.33 * cellScale * 3;
+const cellsGroup = new THREE.Group();
+const cellsDepthGroup = new THREE.Group();
+
 function init(){
-    const container = document.createElement( 'div' );
-	document.body.appendChild( container );
 
     sceneCells = new THREE.Scene();
-
     sceneScreen = new THREE.Scene();
-
     sceneNucleusDepth = new THREE.Scene();
+    sceneCSS = new THREE.Scene();
 
     camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.25, 100 );
     camera.position.set( cameraPos.x, cameraPos.y, cameraPos.z );
@@ -124,30 +143,34 @@ function init(){
     particleMesh = new THREE.Points( particleGeometry, spherePointsMaterial );
     sceneCells.add(particleMesh);
 
-
-    const cellData = [
-        [1.0, 1.0, 1.0],
-        [1.1, -1.4, -1.5],
-        [-1.0, -0.9, -1.5],
-        [-1.2, 1.1, 0.1],
-        [-2.0, 0.3, 2.0],
-        [1.3, -0.4, 2.7],
-        [-2.4, -0.9, 0.3],
-        [-0.0, 0.3, 0.0],
-        [4.5, 1.5, -2.9],
-    ];
-
     const cellMeshes = {
         membrane: null,
         nucleus: null,
     };
 
-    const cellScale = 0.2;
-    const cellParticleCount = 2000;
-    const cellParticleDisRaduisMin = 1.33 * cellScale;
-    const cellParticleDisRaduisMax = 1.33 * cellScale * 3;
-    const cellsGroup = new THREE.Group();
-    const cellsDepthGroup = new THREE.Group();
+
+    for(let i = 0; i < cellData.length; i += 2){
+        const element = document.createElement( 'div' );
+        element.className = 'cellElement';
+        // element.style.backgroundColor = 'rgba(0,127,127,' + ( Math.random() * 0.5 + 0.25 ) + ')';
+        element.style.backgroundColor = 'rgba(0,0,0,0)';
+
+
+        const name = document.createElement( 'div' );
+        name.className = 'cellName';
+        name.textContent = cellData[ i + 1 ];
+        element.appendChild( name );
+
+        const objectCSS = new THREE.CSS3DObject( element );
+        const cellPos = new THREE.Vector3(cellData[i][0], cellData[i][1], cellData[i][2]);
+        const dir = new THREE.Vector3().subVectors(camera.position, cellPos).normalize();
+        const txtPos = cellPos.addScaledVector(dir, cellParticleDisRaduisMin);
+        objectCSS.position.copy(txtPos);
+        objectCSS.scale.multiplyScalar(0.01);
+        objectCSS.lookAt(camera.position.clone());
+        sceneCSS.add( objectCSS );
+        objectCSSList.push(objectCSS);
+    }    
 
     new THREE.GLTFLoader()
     .setPath( 'models/stem_cell/' )
@@ -164,7 +187,7 @@ function init(){
             
 		} );
 
-        for(let i = 0; i < cellData.length; i++){
+        for(let i = 0; i < cellData.length; i += 2){
             const cell = new THREE.Object3D();
             const cellDepth = new THREE.Object3D();
 
@@ -230,15 +253,19 @@ function init(){
 
     } );
 
-    // screenMesh = new THREE.Mesh(new THREE.PlaneGeometry( 2, 2 ), ssBlurMFMaterial);
-    screenMesh = new THREE.Mesh(new THREE.PlaneGeometry( 2, 2 ), ssShowMaterial);
+    screenMesh = new THREE.Mesh(new THREE.PlaneGeometry( 2, 2 ), ssBlurMFMaterial);
+    // screenMesh = new THREE.Mesh(new THREE.PlaneGeometry( 2, 2 ), ssShowMaterial);
     sceneScreen.add(screenMesh);
 
     renderer = new THREE.WebGLRenderer( { antialias: true } );
     renderer.setPixelRatio( window.devicePixelRatio );
     renderer.setSize( window.innerWidth, window.innerHeight );
     renderer.outputEncoding = THREE.sRGBEncoding;
-    container.appendChild( renderer.domElement );
+    document.getElementById('container').appendChild( renderer.domElement );
+
+    rendererCSS = new THREE.CSS3DRenderer();
+    rendererCSS.setSize( window.innerWidth, window.innerHeight );
+    document.getElementById('txt-container').appendChild( rendererCSS.domElement );
 
     const axesHelper = new THREE.AxesHelper(1000);
     sceneScreen.add(axesHelper);
@@ -255,8 +282,8 @@ function init(){
 
 }
 
-const rtWidth_cell = window.innerWidth * 2;
-const rtHeight_cell = window.innerHeight * 2;
+let rtWidth_cell = window.innerWidth * 2;
+let rtHeight_cell = window.innerHeight * 2;
 
 function initRenderTarget(){
     renderTargetNucleusDepth = new THREE.WebGLRenderTarget( window.innerWidth * 2, window.innerHeight * 2, 
@@ -288,7 +315,6 @@ function loadTexture(){
 
     membraneDispMap1 = loader.load( 'models/stem_cell/membrane-displacement1.png' );
     membraneDispMap1.flipY = false;
-
 
 
     nucleusBaseColor = loader.load( 'models/stem_cell/nucleus-color.png' );
@@ -434,7 +460,7 @@ function initMaterial(){
     ssBlurMFMaterial.uniforms[ 'devicePixelRatio' ].value = window.devicePixelRatio;
 
     pointMaterial = new THREE.PointsMaterial( {   
-        size: 0.1, 
+        size: 0.15, 
         // color: 0xff0000, 
         map: pointTexture,
         blending: THREE.CustomBlending, 
@@ -512,7 +538,7 @@ let windowHalfY = window.innerHeight / 2;
 let targetCameraX = cameraPos.x;
 let targetCameraY = cameraPos.y; 
 let targetCameraZ = cameraPos.z;
-const mouseMovFac = 0.0005;
+const mouseMovFac = 0.001;
 
 let cameraAccFac = 0.01;
 let cameraAccMin = 0.0001;
@@ -528,9 +554,6 @@ function onPointerMove( event ) {
     mouseX = event.clientX - windowHalfX;
     mouseY = event.clientY - windowHalfY;
 
-    // targetCameraZ = cameraPos.z - mouseX * mouseMovFac;
-    // targetCameraY = cameraPos.y - mouseY * mouseMovFac;
-    // targetCameraX = cameraPos.x + mouseY * mouseMovFac;
     targetCameraX = cameraPos.x + mouseX * mouseMovFac;
     targetCameraY = cameraPos.y - mouseY * mouseMovFac;
     // targetCameraZ = cameraPos.z + mouseY * mouseMovFac;
@@ -554,11 +577,29 @@ function updateCamera(){
 
 }
 
+function updateCssPos() {
+    for(let i = 0; i < objectCSSList.length; i++){
+        objectCSSList[i].lookAt(camera.position.clone());
+    }
+}
+
 function onWindowResize() {
+
+    windowHalfX = window.innerWidth / 2;
+    windowHalfY = window.innerHeight / 2;
+
+    rtWidth_cell = window.innerWidth * 2;
+    rtHeight_cell = window.innerHeight * 2;
+
+    renderTargetNucleusDepth.setSize(rtWidth_cell, rtHeight_cell);
+    renderTargetCell.setSize(rtWidth_cell, rtHeight_cell);
+
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
 
-    renderer.setSize( window.innerWidth, window.innerHeight );
+    renderer.setSize( window.innerWidth, window.innerHeight);
+
+    rendererCSS.setSize( window.innerWidth, window.innerHeight );
 }
 
 function buildGui(){
@@ -589,8 +630,8 @@ function animate(){
     if(!loadDone) return;
     
     updateFac();
-
     updateCamera();
+    updateCssPos();
     render();
 }
 
@@ -647,8 +688,11 @@ function updateAxonListFac(elapsedTime, list, axonPointsList){
     }
 }
 
-
 function render(){
+
+    rendererCSS.render(sceneCSS, camera);
+
+    renderer.setViewport( 0, 0, window.innerWidth, window.innerHeight );
 
     renderer.setRenderTarget( renderTargetNucleusDepth );
     // renderer.setRenderTarget( null );
@@ -660,7 +704,7 @@ function render(){
     renderer.clear();
     renderer.render( sceneCells, camera );
 
-    renderer.setViewport( 0, 0, window.innerWidth, window.innerHeight );
+    
 
     ssBlurMFMaterial.uniforms[ 'mousePos' ].value = mousePos;
     renderer.setRenderTarget( null );

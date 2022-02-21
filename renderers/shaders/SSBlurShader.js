@@ -130,7 +130,7 @@
 
         float kernel[9] = float[](
             1.0, 2.0, 1.0,
-            2.0,  4.0, 2.0,
+            2.0,  16.0, 2.0,
             1.0, 2.0, 1.0
         );
 
@@ -144,10 +144,12 @@
             }
 
             vec3 color = vec3(0.0);
+            float total = 0.0;
             for(int i = 0; i < 9; i++){
                 color += sampleTex[i] * kernel[i];
+                total += kernel[i];
             }
-            color /= 16.0;
+            color /= total;
 
             vec2 coord = gl_FragCoord.xy / devicePixelRatio;
             vec2 mouse = mousePos;
@@ -156,9 +158,6 @@
             float fac =  clamp( max(dist - threshold, 0.0) / falloff, 0.0, 1.0 );
             color = mix(sampleTex[4], color, vec3(fac));
             
-            // vec3 red = vec3(1.0, 0.0, 0.0);
-            // color = mix(red, color, vec3(fac));
-
             gl_FragColor = vec4(color, 1.0);
         }
         `,

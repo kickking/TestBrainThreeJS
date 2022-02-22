@@ -26,18 +26,43 @@
 				line-height: normal;
 				cursor: default;
 				z-index: 10;
+				overflow: hidden;
 			}
+				@keyframes txtMoveIn {
+					0% {
+						transform: translate(0px,0px) skew(0deg, 20deg);
+					}
+					100% {
+						transform: translate(0px,-20px) skew(0deg, 0deg);
+					}
+				}
+				.cellElement .txtMoveIn{
+					animation: txtMoveIn 0.5s linear 0.1s 1 forwards;
+				}
+
+				@keyframes txtMoveOut {
+					0% {
+						transform: translate(0px,-20px);
+					}
+					100% {
+						transform: translate(0px,-40px);
+					}
+				}
+				.cellElement .txtMoveOut{
+					animation: txtMoveOut 0.5s linear 1 forwards;
+				}
 
 				.cellElement .cellName {
 					position: absolute;
-					top: 0px;
+					top: 20px;
 					left: 0px;
 					right: 0px;
 					font-size: 1px;
 					/* font-weight: bold; */
 					color: rgba(255,255,255,1.0);
-					text-shadow: 0 0 10px rgb(106, 221, 13);
+					text-shadow: 0 0 10px rgb(226, 116, 13);
 				}
+
 
 		</style>
 	</head>

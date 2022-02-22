@@ -81,13 +81,21 @@ const cellData = [
     [-0.0, 0.3, 0.0], "八门金锁阵",
     [4.0, 1.5, -1.8], "九字连环阵",
 ];
+const cellDataUnit = 2;
 
 const cellScale = 0.2;
 const cellParticleCount = 2000;
+const cellTxtDisRaduis = 1.33 * cellScale * 1.5;
 const cellParticleDisRaduisMin = 1.33 * cellScale;
 const cellParticleDisRaduisMax = 1.33 * cellScale * 3;
 const cellsGroup = new THREE.Group();
 const cellsDepthGroup = new THREE.Group();
+
+const cssScale = 0.01;
+
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2(1.0, 1.0);
+let INTERSECTED;
 
 function init(){
 
@@ -149,7 +157,7 @@ function init(){
     };
 
 
-    for(let i = 0; i < cellData.length; i += 2){
+    for(let i = 0; i < cellData.length; i += cellDataUnit){
         const element = document.createElement( 'div' );
         element.className = 'cellElement';
         // element.style.backgroundColor = 'rgba(0,127,127,' + ( Math.random() * 0.5 + 0.25 ) + ')';
@@ -157,16 +165,16 @@ function init(){
 
 
         const name = document.createElement( 'div' );
-        name.className = 'cellName';
+        name.className = 'cellName txtMoveIn';
         name.textContent = cellData[ i + 1 ];
         element.appendChild( name );
 
         const objectCSS = new THREE.CSS3DObject( element );
         const cellPos = new THREE.Vector3(cellData[i][0], cellData[i][1], cellData[i][2]);
         const dir = new THREE.Vector3().subVectors(camera.position, cellPos).normalize();
-        const txtPos = cellPos.addScaledVector(dir, cellParticleDisRaduisMin);
+        const txtPos = cellPos.addScaledVector(dir, cellTxtDisRaduis);
         objectCSS.position.copy(txtPos);
-        objectCSS.scale.multiplyScalar(0.01);
+        objectCSS.scale.multiplyScalar(cssScale);
         objectCSS.lookAt(camera.position.clone());
         sceneCSS.add( objectCSS );
         objectCSSList.push(objectCSS);
@@ -187,11 +195,12 @@ function init(){
             
 		} );
 
-        for(let i = 0; i < cellData.length; i += 2){
+        for(let i = 0; i < cellData.length; i += cellDataUnit){
             const cell = new THREE.Object3D();
             const cellDepth = new THREE.Object3D();
 
             const membrane = cellMeshes.membrane.clone();
+            membrane.cellIndex = i / cellDataUnit;
             membrane.material = membraneMaterial.clone();
             membrane.scale.setScalar(cellScale);
             // axon.makeAxonIndexOnMesh(membrane);
@@ -215,6 +224,8 @@ function init(){
             cell.add(membrane);
             cell.add(nucleus);
             cell.position.set(cellData[i][0], cellData[i][1], cellData[i][2]);
+            // cell.matrixWorldNeedsUpdate = true;
+            // membrane.matrixWorldNeedsUpdate = true;
 
             // const geometry = new THREE.BufferGeometry();
             // const vertices = [];
@@ -253,8 +264,8 @@ function init(){
 
     } );
 
-    screenMesh = new THREE.Mesh(new THREE.PlaneGeometry( 2, 2 ), ssBlurMFMaterial);
-    // screenMesh = new THREE.Mesh(new THREE.PlaneGeometry( 2, 2 ), ssShowMaterial);
+    // screenMesh = new THREE.Mesh(new THREE.PlaneGeometry( 2, 2 ), ssBlurMFMaterial);
+    screenMesh = new THREE.Mesh(new THREE.PlaneGeometry( 2, 2 ), ssShowMaterial);
     sceneScreen.add(screenMesh);
 
     renderer = new THREE.WebGLRenderer( { antialias: true } );
@@ -277,6 +288,7 @@ function init(){
 
     document.body.style.touchAction = 'none';
     document.body.addEventListener( 'pointermove', onPointerMove );
+    document.body.addEventListener( 'pointerdown', onPointerDown );
 
     window.addEventListener( 'resize', onWindowResize );
 
@@ -340,7 +352,9 @@ function loadTexture(){
 	pointTexture.needsUpdate = true;
 
     noiseTexture = loader.load( 'textures/stem_cell/point-noise.png' );
-    nucleusDispMap1.flipY = false;
+    noiseTexture.flipY = false;
+    noiseTexture.wrapS = THREE.RepeatWrapping;
+    noiseTexture.wrapT = THREE.RepeatWrapping;
 
 }
 
@@ -536,13 +550,20 @@ let windowHalfX = window.innerWidth / 2;
 let windowHalfY = window.innerHeight / 2;
 
 let targetCameraX = cameraPos.x;
-let targetCameraY = cameraPos.y; 
+let targetCameraY = cameraPos.y;
 let targetCameraZ = cameraPos.z;
 const mouseMovFac = 0.001;
 
 let cameraAccFac = 0.01;
 let cameraAccMin = 0.0001;
 let cameraDis = 0.0001;
+
+function onPointerDown(event) {
+    for(let i = 0; i < objectCSSList.length; i++){
+        objectCSSList[i].element.children[0].className = "cellName txtMoveOut";
+    }
+    
+}
 
 function onPointerMove( event ) {
 
@@ -557,6 +578,10 @@ function onPointerMove( event ) {
     targetCameraX = cameraPos.x + mouseX * mouseMovFac;
     targetCameraY = cameraPos.y - mouseY * mouseMovFac;
     // targetCameraZ = cameraPos.z + mouseY * mouseMovFac;
+
+    pointer.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+	pointer.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+
 }
 
 function updateCamera(){
@@ -632,7 +657,11 @@ function animate(){
     updateFac();
     updateCamera();
     updateCssPos();
+
+    findPointCell();
+
     render();
+
 }
 
 let flag = 0;
@@ -685,6 +714,21 @@ function updateAxonListFac(elapsedTime, list, axonPointsList){
     for(let i = 0; i < list.length; i++){
         axonPointsList[i].material.rootDisplacementFac = list[i].material.displacementFac;
         axonPointsList[i].material.time = elapsedTime;
+    }
+}
+
+function findPointCell(){
+    raycaster.setFromCamera( pointer, camera );
+    const intersects = raycaster.intersectObjects( membraneList );
+    if ( intersects.length > 0 ) {
+        if(INTERSECTED != intersects[ 0 ].object){
+            const index = intersects[ 0 ].object.cellIndex;
+            console.log(cellData[index * 2 + 1]);
+            INTERSECTED = intersects[ 0 ].object;
+        }
+        
+    }else{
+        INTERSECTED = null;
     }
 }
 

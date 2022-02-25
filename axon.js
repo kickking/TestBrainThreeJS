@@ -361,9 +361,9 @@ class Axon {
                 attr.uvs.push(Math.random());
 
                 const ratio = node.layer / _AxonLayerMaxCount;
-                const r = 0.03 * (1.0 - ratio) + 0.1 * Math.random();
+                const r = 0.1 * (1.0 - ratio) + 0.1 * Math.random();
                 const g = 0.1;
-                const b = 0.2 * ratio + 0.1 * Math.random();
+                const b = 0.5 * ratio + 0.1 * Math.random();
 
                 const color = new THREE.Color();
                 color.setRGB(r,g,b);

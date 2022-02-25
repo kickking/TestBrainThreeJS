@@ -1,3 +1,5 @@
+import { TWEEN } from './examples/jsm/libs/tween.module.min.js';
+
 let sceneCells, sceneScreen;
 let sceneNucleusDepth;
 let sceneCSS;
@@ -38,7 +40,7 @@ const axon = new THREE.Axon({
     AxonColorIntensity: 0.2,
 });
 
-let ssShowMaterial, ssBlurMaterial, ssBlurMFMaterial;
+let ssShowMaterial, ssBlurMaterial, ssBlurMFMaterial, ssDarkenMFMaterial;
 let pointMaterial, spherePointsMaterial, axonPointsMaterial;
 
 let pointTexture;
@@ -92,10 +94,6 @@ const cellsGroup = new THREE.Group();
 const cellsDepthGroup = new THREE.Group();
 
 const cssScale = 0.01;
-
-const raycaster = new THREE.Raycaster();
-const pointer = new THREE.Vector2(1.0, 1.0);
-let INTERSECTED;
 
 function init(){
 
@@ -200,9 +198,27 @@ function init(){
             const cellDepth = new THREE.Object3D();
 
             const membrane = cellMeshes.membrane.clone();
-            membrane.cellIndex = i / cellDataUnit;
             membrane.material = membraneMaterial.clone();
             membrane.scale.setScalar(cellScale);
+            membrane.cellIndex = i / cellDataUnit;
+
+            const spherical = new THREE.Spherical();
+            spherical.setFromCartesianCoords(cellData[i][0], cellData[i][1], cellData[i][2]);
+            const color = new THREE.Color();
+
+            // const h = 0.5 + 0.5 * (spherical.theta + Math.PI) / (2 * Math.PI);
+            // const s = 0.3 + 0.7 * spherical.phi / Math.PI;
+            // const l = 0.4;
+            // color.setHSL(h,s,l);
+
+            const r = 0.5 + 0.5 * (spherical.theta + Math.PI) / (2 * Math.PI);
+            const g = 0.3 + 0.3 * spherical.phi / Math.PI;
+            const b = 0.2;
+            color.setRGB(r,g,b);
+
+            // membrane.focusColorFac = new THREE.Vector3(color.r, color.g, color.b);
+            membrane.focusColorFac = new THREE.Vector3(1.0, 1.0, 1.0);
+
             // axon.makeAxonIndexOnMesh(membrane);
             // axon.makeAxonListHeadsOnMesh(membrane);
             // axon.addAxonPointsMaterialFromMesh(cell, membrane, axonPointsMaterial.clone(), axonPointsList);
@@ -264,8 +280,9 @@ function init(){
 
     } );
 
+    screenMesh = new THREE.Mesh(new THREE.PlaneGeometry( 2, 2 ), ssDarkenMFMaterial);
     // screenMesh = new THREE.Mesh(new THREE.PlaneGeometry( 2, 2 ), ssBlurMFMaterial);
-    screenMesh = new THREE.Mesh(new THREE.PlaneGeometry( 2, 2 ), ssShowMaterial);
+    // screenMesh = new THREE.Mesh(new THREE.PlaneGeometry( 2, 2 ), ssShowMaterial);
     sceneScreen.add(screenMesh);
 
     renderer = new THREE.WebGLRenderer( { antialias: true } );
@@ -473,6 +490,22 @@ function initMaterial(){
     ssBlurMFMaterial.uniforms[ 'resolution' ].value = new THREE.Vector2(window.innerWidth , window.innerHeight);
     ssBlurMFMaterial.uniforms[ 'devicePixelRatio' ].value = window.devicePixelRatio;
 
+    ssDarkenMFMaterial = new THREE.ShaderMaterial({
+        uniforms: THREE.UniformsUtils.clone( THREE.SSDarkenMFShader.uniforms ),
+        vertexShader: THREE.SSDarkenMFShader.vertexShader,
+        fragmentShader: THREE.SSDarkenMFShader.fragmentShader,
+        depthWrite: false,
+    });
+
+    ssDarkenMFMaterial.uniforms[ 'tScreen' ].value = renderTargetCell.texture;
+    ssDarkenMFMaterial.uniforms[ 'darkenFac' ].value = 1.0;
+    ssDarkenMFMaterial.uniforms[ 'focusColorFac' ].value = new THREE.Vector3(1.0, 0.5, 1.0);
+    ssDarkenMFMaterial.uniforms[ 'focusPos' ].value = new THREE.Vector2(0.0, 0.0);
+    ssDarkenMFMaterial.uniforms[ 'threshold' ].value = 80;
+    ssDarkenMFMaterial.uniforms[ 'falloff' ].value = 80;
+    ssDarkenMFMaterial.uniforms[ 'resolution' ].value = new THREE.Vector2(window.innerWidth, window.innerHeight);
+    ssDarkenMFMaterial.uniforms[ 'devicePixelRatio' ].value = window.devicePixelRatio;
+
     pointMaterial = new THREE.PointsMaterial( {   
         size: 0.15, 
         // color: 0xff0000, 
@@ -559,6 +592,7 @@ let cameraAccMin = 0.0001;
 let cameraDis = 0.0001;
 
 function onPointerDown(event) {
+
     for(let i = 0; i < objectCSSList.length; i++){
         objectCSSList[i].element.children[0].className = "cellName txtMoveOut";
     }
@@ -570,6 +604,8 @@ function onPointerMove( event ) {
     if ( event.isPrimary === false ) return;
 
     mousePos.set(event.clientX, event.clientY);
+
+    // console.log(event.clientX + '***' + event.clientY);
 
     //add camera follow pointer move
     mouseX = event.clientX - windowHalfX;
@@ -600,12 +636,6 @@ function updateCamera(){
 
     camera.lookAt( cameraTarget );
 
-}
-
-function updateCssPos() {
-    for(let i = 0; i < objectCSSList.length; i++){
-        objectCSSList[i].lookAt(camera.position.clone());
-    }
 }
 
 function onWindowResize() {
@@ -644,6 +674,9 @@ function buildGui(){
 }
 
 const clock = new THREE.Clock();
+let lastElapsedTime;
+let elapsedTime;
+let deltaTime;
 
 function animate(){
     requestAnimationFrame( animate );
@@ -653,12 +686,16 @@ function animate(){
     stats.update();
 
     if(!loadDone) return;
-    
-    updateFac();
+
+    updateTime();
+    updateFac(elapsedTime);
     updateCamera();
     updateCssPos();
 
     findPointCell();
+    updateFocus();
+
+    TWEEN.update();
 
     render();
 
@@ -666,8 +703,16 @@ function animate(){
 
 let flag = 0;
 
-function updateFac(){
-    const elapsedTime = clock.getElapsedTime();
+function updateTime(){
+    elapsedTime = clock.getElapsedTime();
+    if(lastElapsedTime){
+        deltaTime = elapsedTime - lastElapsedTime;
+    }
+    lastElapsedTime = elapsedTime;
+}
+
+function updateFac(elapsedTime){
+    
     updateMeshListFac(elapsedTime, membraneList);
     updateMeshListFac(elapsedTime, nucleusList);
     updateDepthMeshListFac(nucleusList, nucleusDepthList);
@@ -717,13 +762,23 @@ function updateAxonListFac(elapsedTime, list, axonPointsList){
     }
 }
 
+function updateCssPos() {
+    for(let i = 0; i < objectCSSList.length; i++){
+        objectCSSList[i].lookAt(camera.position.clone());
+    }
+}
+
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2(1.0, 1.0);
+let INTERSECTED = null;
+
 function findPointCell(){
     raycaster.setFromCamera( pointer, camera );
     const intersects = raycaster.intersectObjects( membraneList );
     if ( intersects.length > 0 ) {
         if(INTERSECTED != intersects[ 0 ].object){
-            const index = intersects[ 0 ].object.cellIndex;
-            console.log(cellData[index * 2 + 1]);
+            // const index = intersects[ 0 ].object.cellIndex;
+            // console.log(cellData[index * 2 + 1]);
             INTERSECTED = intersects[ 0 ].object;
         }
         
@@ -731,6 +786,84 @@ function findPointCell(){
         INTERSECTED = null;
     }
 }
+
+let darkenFac = 1.0;
+const darkenFacMin = 0.2;
+const darkenFacMax = 1.0;
+const darkenFacSpeedPS = 1.0;
+
+let focusPos = new THREE.Vector2(0.0, 0.0);
+let hasFocus = false;
+const focusMoveTimeMS = 300;
+const focusFadeTimeMS = 1000;
+let pointCellIndex = -1;
+let focusColorFac = new THREE.Vector3(0.0,0.0,0.0);
+let fadeTween;
+let colorTween;
+
+function updateFocus(){
+    if(!deltaTime) return;
+
+    if(INTERSECTED){
+        darkenFac -= darkenFacSpeedPS * deltaTime;
+        darkenFac = Math.max(darkenFac, darkenFacMin);
+
+        const posData = cellData[INTERSECTED.cellIndex * 2];
+        const posNDC = new THREE.Vector3(posData[0], posData[1], posData[2]).project(camera);
+        const glX = (posNDC.x + 1.0) * 0.5 * window.innerWidth;
+        const glY = (posNDC.y + 1.0) * 0.5 * window.innerHeight;
+
+        if(!hasFocus){
+            
+            focusPos.set(glX, glY);
+            focusColorFac.set(INTERSECTED.focusColorFac.x, INTERSECTED.focusColorFac.y, INTERSECTED.focusColorFac.z);
+            hasFocus = true;
+
+        }else if(hasFocus && pointCellIndex !== INTERSECTED.cellIndex){
+
+            new TWEEN.Tween( focusPos )
+            .to( {x : glX, y : glY}, focusMoveTimeMS )
+            .easing( TWEEN.Easing.Linear.None )
+            .start();
+
+            if(fadeTween){
+                TWEEN.remove(fadeTween);
+                fadeTween = null;
+            }
+            
+            colorTween = new TWEEN.Tween( focusColorFac )
+            .to( {x : INTERSECTED.focusColorFac.x, y : INTERSECTED.focusColorFac.y, z : INTERSECTED.focusColorFac.z}, focusMoveTimeMS )
+            .easing( TWEEN.Easing.Linear.None )
+            .start();
+
+            
+
+        }
+        pointCellIndex = INTERSECTED.cellIndex;
+    }else{
+        darkenFac += darkenFacSpeedPS * deltaTime;
+        darkenFac = Math.min(darkenFac, darkenFacMax);
+        if(hasFocus && pointCellIndex !== -1){
+            if(colorTween){
+                TWEEN.remove(colorTween);
+                colorTween = null;
+            }
+            
+            fadeTween = new TWEEN.Tween( focusColorFac )
+            .to( {x : 1.0, y : 1.0, z : 1.0}, focusFadeTimeMS )
+            .easing( TWEEN.Easing.Linear.None )
+            .onComplete( ()=>{
+                hasFocus = false;
+            } ).start();
+        }
+        pointCellIndex = -1;
+    }
+
+    ssDarkenMFMaterial.uniforms[ 'darkenFac' ].value = darkenFac;
+    ssDarkenMFMaterial.uniforms[ 'focusColorFac' ].value.set(focusColorFac.x, focusColorFac.y, focusColorFac.z);
+    ssDarkenMFMaterial.uniforms[ 'focusPos' ].value.set(focusPos.x, focusPos.y);
+}
+
 
 function render(){
 

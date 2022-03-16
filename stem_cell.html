@@ -63,6 +63,9 @@
 					text-shadow: 0 0 10px rgb(226, 116, 13);
 				}
 
+				.cellElement .focus {
+					top : 0px;
+				}
 
 		</style>
 	</head>
@@ -72,6 +75,7 @@
 			<div id="txt-container"></div>
 		</div>
         <script src="build/three.js"></script>
+		<script src="MathUtil.js"></script>
 		<script src="examples/js/libs/dat.gui.min.js"></script>
         <script src="examples/js/controls/OrbitControls.js"></script>
         <script src="examples/js/libs/stats.min.js"></script>
@@ -86,9 +90,13 @@
 		<script src="renderers/shaders/SSBlurShader.js"></script>
 		<script src="renderers/shaders/SSCombineShader.js"></script>
 		<script src="renderers/shaders/DepthShader.js"></script>
+		<script src="renderers/shaders/SSExtractShader.js"></script>
 		<script src="renderers/materials/SpherePointsMaterial.js"></script>
 		<script src="renderers/materials/AxonPointsMaterial.js"></script>
 		<script src="renderers/materials/MixDispNormMaterial.js"></script>
+		<script src="renderers/materials/AxonGeometryMaterial.js"></script>
+		<script src="renderers/materials/AxonPointLightMaterial.js"></script>
+		<script src="renderers/SSGaussianBlurPass.js"></script>
 		<script src="axon.js"></script>
         <script type="module" src="stem_cell.js"></script>
 	</body>

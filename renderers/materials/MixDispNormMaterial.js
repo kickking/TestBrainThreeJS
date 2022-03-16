@@ -30,6 +30,10 @@ class MixDispNormMaterial extends THREE.MeshPhysicalMaterial {
         }
     }
 
+    get normalFac() {
+        return this.#normalFac;
+    }
+
     onBeforeCompile(shader){
         this.#shader = shader;
         shader.uniforms.displacementMap1 = { value: this.displacementMap1 };
@@ -87,9 +91,8 @@ class MixDispNormMaterial extends THREE.MeshPhysicalMaterial {
         super.copy(source);
 
         this.displacementMap1 = source.displacementMap1;
-        this.normalMap1 = source.normalMap1;
-
         this.displacementFac = source.displacementFac;
+        this.normalMap1 = source.normalMap1;
         this.normalFac = source.normalFac;
         return this;
     }

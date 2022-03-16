@@ -313,9 +313,9 @@ function initMaterial(){
     });
 
     ssCombineMaterial = new THREE.ShaderMaterial({
-        uniforms: THREE.UniformsUtils.clone( THREE.SSCombineShader.uniforms ),
-        vertexShader: THREE.SSCombineShader.vertexShader,
-        fragmentShader: THREE.SSCombineShader.fragmentShader,
+        uniforms: THREE.UniformsUtils.clone( THREE.SSDepthCombineShader.uniforms ),
+        vertexShader: THREE.SSDepthCombineShader.vertexShader,
+        fragmentShader: THREE.SSDepthCombineShader.fragmentShader,
         depthWrite: false,
     });
 

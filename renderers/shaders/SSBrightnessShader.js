@@ -60,6 +60,7 @@
             vec3 darkenColor = color * darkenFac;
 
             vec3 focusColor = color * focusColorFac;
+            
             // vec3 focusColor = color * focusColorFac * 3.0;
             // focusColor = saturate( focusColor / ( vec3( 1.0 ) + focusColor ) );
 
@@ -71,6 +72,7 @@
             color = mix(focusColor, darkenColor, vec3(fac));
 
             gl_FragColor = vec4(color, 1.0);
+            gl_FragColor = linearToOutputTexel(gl_FragColor);
         }
         `,
 

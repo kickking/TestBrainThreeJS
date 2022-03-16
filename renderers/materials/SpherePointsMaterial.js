@@ -37,11 +37,11 @@
 
             token = '#include <begin_vertex>';
             let replacement = /* glsl */`
-                vec2 tUV = uv + time * 0.0001;
+                vec2 tUV = uv + time * 0.0003;
                 vec4 noise = texture2D( noiseMap, tUV );
                 vec4 noise1 = texture2D( noiseMap, tUV * 2.0);
 
-                float dTheta = PI * noise.a * 10.0;
+                float dTheta = PI * noise.a * 1.0;
                 float theta = sphereCoord.x + dTheta;
                 float dPhi = PI2 * noise1.a * 0.1;
                 float phi = sphereCoord.y + dPhi;

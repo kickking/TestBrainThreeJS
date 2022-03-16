@@ -185,9 +185,9 @@ function init() {
         // console.log(meshes[i].geometry);
         for(let j = 0; j < meshes[i].geometry.axonListGeometrys.length; j++){
             const geometry = meshes[i].geometry.axonListGeometrys[j];
-            const mesh = new THREE.Points( geometry, pointMaterial );
+            // const mesh = new THREE.Points( geometry, pointMaterial );
             // const mesh = new THREE.Mesh(geometry, materialWireframe);
-            // const mesh = new THREE.Mesh(geometry, axonMaterial);
+            const mesh = new THREE.Mesh(geometry, axonMaterial);
             
             // mesh.material.side = THREE.DoubleSide;
 
@@ -597,11 +597,12 @@ function makeAxonGeometryAttrNested(node, positions, normals, uvs, layers){
             const c1 = j === 0 ? len : 0;
             const c2 = j + 1;
             uvs.push(c1 / len, 0);
-            uvs.push(a / len, 1);
             uvs.push(c1 / len, 1);
+            uvs.push(a / len, 1);
             uvs.push(j / len, 0);
-            uvs.push(j / len, 1);
             uvs.push(c2 / len, 0);
+            uvs.push(j / len, 1);
+            
         }
         makeAxonGeometryAttrNested(next, positions, normals, uvs, layers);
     }

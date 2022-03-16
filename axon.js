@@ -47,7 +47,7 @@ class Axon {
         const _AxonLayerTotalMaxLength = this.AxonLayerTotalMaxLength || 3;
         const _AxonRotAxisMaxAngle =  this.AxonRotAxisMaxAngle || 9;
         const _AxonLayerMaxAngle = _AxonRotAxisMaxAngle * 2 /* calcAxonLayerAngle(_AxonRotAxisMaxAngle) */;
-        const _AxonSegments = this.AxonSegments || 18;
+        const _AxonSegments = this.AxonSegments || (2 * 2);
         const _AxonRadiusAttenuationSpeed = this.AxonRadiusAttenuationSpeed || 4;
         const _AxonSizeAttenuationSpeed = this.AxonSizeAttenuationSpeed || 3;
         const _AxonColorIntensity = this.AxonColorIntensity || 0.1;
@@ -73,13 +73,15 @@ class Axon {
                     NormalArray[mesh.axonIndices[j] * 3 + 2]);
         
                 const RootDirection = rotateV3LimitAngle(AxonNormal, _AxonRootRotAxisAngleMax).normalize();
+                const radiusMax = getRandomNumBetween(0.5 * _AxonRadiusMax, _AxonRadiusMax);
                 const param = {
                     position : AxonVertex,
                     direction : RootDirection /* AxonNormal.normalize() */,
                     layerIndex : 0,
                     layerLength : _AxonLayerMinLength,
                     layerTotalLength : 0,
-                    radius : _AxonRadiusMax /* getRandomNumBetween(0.15, 0.3) */,
+                    radius : radiusMax,
+                    radiusMax : radiusMax,
                     radiusMin : _AxonRadiusMin /* getRandomNumBetween(0.01, 0.02) */,
                     splitRatio : _AxonSplitRatio,
                     pointsMatrix : new THREE.Matrix4(),
@@ -106,7 +108,7 @@ class Axon {
         
         function makeAxonNested(Param, PrevNode) {
             const {position, direction, layerIndex, layerLength, layerTotalLength, radius, 
-                 radiusMin, splitRatio, pointsMatrix, sizeAttenuation} = Param;
+                radiusMax, radiusMin, splitRatio, pointsMatrix, sizeAttenuation} = Param;
             
             if(layerIndex >= _AxonLayerMaxCount - 1 || layerTotalLength > _AxonLayerTotalMaxLength) {
                 return null;
@@ -128,7 +130,7 @@ class Axon {
                 nextPosition.addScaledVector(direction, layerLength);
                 const total = layerTotalLength + layerLength;
                 const radiusAttenuation = Math.pow((_AxonLayerTotalMaxLength - total) / _AxonLayerTotalMaxLength, _AxonRadiusAttenuationSpeed ) ;
-                const tempRadius = _AxonRadiusMax * radiusAttenuation;
+                const tempRadius = radiusMax * radiusAttenuation;
                 const nextRadius = tempRadius < radiusMin ? radiusMin : tempRadius;
                 const attenuation = Math.pow((_AxonLayerTotalMaxLength - total) / _AxonLayerTotalMaxLength, _AxonSizeAttenuationSpeed ) ;
 
@@ -143,11 +145,11 @@ class Axon {
                     direction, nextDirection, nextMatrix);
                 
                 //the bigger angel ,the shorter layer length which make axon smooth
-                // const angle = 180 * Math.acos(direction.dot(nextDirection)) / Math.PI;
-                // let nextLayerLength = _AxonLayerMaxLength * Math.pow((_AxonLayerMaxAngle - angle) / _AxonLayerMaxAngle, 2); 
-                // nextLayerLength = (nextLayerLength < _AxonLayerMinLength || layerIndex < 5) ? _AxonLayerMinLength : nextLayerLength;
+                const angle = 180 * Math.acos(direction.dot(nextDirection)) / Math.PI;
+                let nextLayerLength = _AxonLayerMaxLength * Math.pow((_AxonLayerMaxAngle - angle) / _AxonLayerMaxAngle, 2); 
+                nextLayerLength = (nextLayerLength < _AxonLayerMinLength || layerIndex < 5) ? _AxonLayerMinLength : nextLayerLength;
 
-                let nextLayerLength = _AxonLayerMinLength;
+                // let nextLayerLength = _AxonLayerMinLength;
 
                 const nextParam = {
                     position : nextPosition,
@@ -156,6 +158,7 @@ class Axon {
                     layerLength : nextLayerLength,
                     layerTotalLength : total,
                     radius : nextRadius,
+                    radiusMax: radiusMax,
                     radiusMin : radiusMin,
                     splitRatio : splitRatio,
                     pointsMatrix : nextMatrix,
@@ -264,6 +267,90 @@ class Axon {
         
         }
 
+        this.makeAxonGeometryOnMesh = function(mesh) {
+            mesh.axonGeometryAttr = {
+                positions: [],
+                normals: [],
+                uvs: [],
+                layers: [],
+                rootNormals: [],
+                rootUVs: [],
+                rootRands: [],
+            };
+
+            for(let i = 0; i < mesh.axonListHeads.length; i++){
+        
+                const node = mesh.axonListHeads[i];
+
+                const uvOffsetX = node.radius * Math.PI * 2 / _AxonLayerTotalMaxLength;
+                const uvStartX = Math.random() * (1.0 - uvOffsetX);
+
+                const axonIndex = mesh.axonIndices[i];
+                const rands = mesh.axonRands[i];
+
+                makeAxonGeometryAttrNested(mesh, node, uvStartX, axonIndex, rands);
+
+            }
+        }
+
+        function makeAxonGeometryAttrNested(mesh, node, uvStartX, axonIndex, rands){
+            const {positions, normals, uvs, layers, rootNormals, rootUVs, rootRands} = mesh.axonGeometryAttr;
+            const { array : normalArray} = mesh.geometry.attributes.normal;
+            const { array : uvArray} = mesh.geometry.attributes.uv;
+
+            const len = node.points.length;
+            for(let i = 0; i < node.branches.length; i++){
+                const next = node.branches[i];
+                const offsetX0 = node.radius * Math.PI / (_AxonLayerTotalMaxLength * (len / 2));
+                const offsetX1 = next.radius * Math.PI / (_AxonLayerTotalMaxLength * (len / 2));
+                const y0 = node.layer * 1 / _AxonLayerMaxCount;
+                const y1 = next.layer * 1 / _AxonLayerMaxCount;
+
+                for(let j = 0; j < len; j++){
+                    const a = (j + len - 1) % len;
+                    const b = (j + 1) % len;
+                    positions.push(node.points[j].x, node.points[j].y, node.points[j].z);layers.push(node.layer);
+                    positions.push(next.points[j].x, next.points[j].y, next.points[j].z);layers.push(next.layer);
+                    positions.push(next.points[a].x, next.points[a].y, next.points[a].z);layers.push(next.layer);
+                    positions.push(node.points[j].x, node.points[j].y, node.points[j].z);layers.push(node.layer);
+                    positions.push(node.points[b].x, node.points[b].y, node.points[b].z);layers.push(node.layer);
+                    positions.push(next.points[j].x, next.points[j].y, next.points[j].z);layers.push(next.layer);
+
+                    const n1 = new THREE.Vector3().subVectors(node.points[j], node.position).normalize();
+                    const n2 = new THREE.Vector3().subVectors(next.points[a], next.position).normalize();
+                    const n3 = new THREE.Vector3().subVectors(next.points[j], next.position).normalize();
+                    const n4 = new THREE.Vector3().subVectors(node.points[b], node.position).normalize();
+                    
+                    normals.push(n1.x, n1.y, n1.z);
+                    normals.push(n3.x, n3.y, n3.z);
+                    normals.push(n2.x, n2.y, n2.z);
+                    normals.push(n1.x, n1.y, n1.z);
+                    normals.push(n4.x, n4.y, n4.z);
+                    normals.push(n3.x, n3.y, n3.z);
+
+                    const x0 = 1 * (uvStartX + (offsetX0 * len / 2) - Math.abs(offsetX0 * (j - len / 2)));
+                    const x1 = 1 * (uvStartX + (offsetX1 * len / 2) - Math.abs(offsetX1 * (j - len / 2)));
+                    const x2 = 1 * (uvStartX + (offsetX1 * len / 2) - Math.abs(offsetX1 * (a - len / 2)));
+                    const x3 = 1 * (uvStartX + (offsetX0 * len / 2) - Math.abs(offsetX0 * (j + 1 - len / 2)));
+                    uvs.push(x0, y0);
+                    uvs.push(x1, y1);
+                    uvs.push(x2, y1);
+                    uvs.push(x0, y0);
+                    uvs.push(x3, y0);
+                    uvs.push(x1, y1);
+
+                    for(let k = 0; k < 6; k++){
+                        rootNormals.push(normalArray[axonIndex * 3], 
+                            normalArray[axonIndex * 3 + 1], normalArray[axonIndex * 3 + 2]);
+                        rootUVs.push(uvArray[axonIndex * 2], uvArray[axonIndex * 2 + 1]);
+                        rootRands.push.apply(rootRands, rands);
+                    }
+                    
+                }
+                makeAxonGeometryAttrNested(mesh, next, uvStartX, axonIndex, rands);
+            }
+        }
+
         this.addAxonLineFromMesh = function(obj, mesh) {
             const pointsV3 = [];
             for(let i = 0; i < mesh.axonListHeads.length; i++){
@@ -324,7 +411,7 @@ class Axon {
                 sizeAttenuations: [],
                 uvs: [],
                 colors: [],
-            }
+            };
 
             for(let i = 0; i < mesh.axonListHeads.length; i++){
                 const axonIndex = mesh.axonIndices[i];
@@ -361,9 +448,18 @@ class Axon {
                 attr.uvs.push(Math.random());
 
                 const ratio = node.layer / _AxonLayerMaxCount;
+
                 const r = 0.1 * (1.0 - ratio) + 0.1 * Math.random();
                 const g = 0.1;
-                const b = 0.5 * ratio + 0.1 * Math.random();
+                const b = 0.8 * ratio + 0.2 * Math.random();
+
+                // const r = 0.02 * (1.0 - ratio) + 0.1 * Math.random();
+                // const g = 0.1;
+                // const b = 0.2 * ratio + 0.1 * Math.random();
+
+                // const r = 1.0;
+                // const g = 0.0;
+                // const b = 0.0;
 
                 const color = new THREE.Color();
                 color.setRGB(r,g,b);
@@ -387,12 +483,29 @@ class Axon {
             geometry.setAttribute( 'uv', new THREE.Float32BufferAttribute( attr.uvs, 2 ) );
             geometry.setAttribute( 'color', new THREE.Float32BufferAttribute( attr.colors, 3 ) );
 
-            // console.log(geometry)
-
             const points = new THREE.Points(geometry, material);
+            // points.visible = false;
             obj.add(points);
             list.push(points);
         }
+
+        this.addAxonGeometryMaterialFromMesh = function(obj, mesh, material, list){
+            const {positions, normals, uvs, layers, rootNormals, rootUVs, rootRands} = mesh.axonGeometryAttr;
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+            geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+            geometry.setAttribute( 'layer', new THREE.Float32BufferAttribute( layers, 1 ) );
+            geometry.setAttribute( 'rootNormal', new THREE.Float32BufferAttribute( rootNormals, 3 ) );
+            geometry.setAttribute( 'rootUv', new THREE.Float32BufferAttribute( rootUVs, 2 ) );
+            geometry.setAttribute( 'rootRands', new THREE.Float32BufferAttribute( rootRands, 3 ) );
+
+            const axonMesh = new THREE.Mesh(geometry, material);
+            // axonMesh.visible = false;
+            obj.add(axonMesh);
+            list.push(axonMesh);
+        }
+
 
     }
     

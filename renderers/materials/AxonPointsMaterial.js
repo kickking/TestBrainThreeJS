@@ -26,6 +26,10 @@
             }
         }
 
+        get rootDisplacementFac() {
+            return this.#rootDisplacementFac;
+        }
+
         set time(value){
             this.#time = value;
             if(this.#shader){
@@ -66,7 +70,7 @@
                 attribute float sizeAttenuation;
 
                 varying vec2 vUv;
-                varying float ndcZ;
+                // varying float ndcZ;
 
         `;
             shader.vertexShader = shader.vertexShader.replace(token, token + insert);
@@ -78,7 +82,8 @@
                 float phase = PI2 * layer * 1.0 / layerMax;
                 float offset = dispValue * rootRands.z * (sin(phase + time * rootRands.x) + cos(phase + time * rootRands.y));
                 vec3 rN = normalize(rootNormal * rootRands);
-                transformed += rN * (offset * rootDisplacementScale + rootDisplacementBias);
+                float ratio = 1.0 - exp(-layer / 50.0);
+                transformed += rN * (offset * rootDisplacementScale * ratio + rootDisplacementBias);
                 vUv = uv;
                 vec2 tUV = vUv + time * 0.001;
                 vec3 dir = normalize(texture2D( noiseMap, vUv ).rgb);
@@ -125,6 +130,16 @@
                 }
         `;
             shader.fragmentShader = shader.fragmentShader.replace(token, token + insert);
+
+        //     token = '#include <output_fragment>';
+        //     insert = /* glsl */`
+        //         vec2 uvs = vUv;
+        //         float depth = texture(depthMap, gl_FragCoord.xy / viewPort).r;
+        //         if(depth > (1.0 - gl_FragCoord.z)){
+        //             gl_FragColor = vec4( 1.0,0.0,0.0, 1.0 );
+        //         }
+        // `;
+        //     shader.fragmentShader = shader.fragmentShader.replace(token, token + insert);
 
 
         }

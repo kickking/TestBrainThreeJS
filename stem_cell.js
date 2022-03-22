@@ -87,20 +87,9 @@ const environments = {
 };
 
 const cameraPos = new THREE.Vector3(0,0,5.5);
-const cameraTarget = new THREE.Vector3(0,-0.0,0);
-
-const cellData = [
-    [1.0, 1.0, 1.0], "一字长蛇阵", 'r',
-    [0.8, -1.7, -1.6], "二龙出水阵", 'l',
-    [-1.0, -0.9, -1.5], "天地三才阵", 'r',
-    [-1.2, 1.1, 0.1], "四门兜底阵", 'l',
-    [-2.0, 0.3, 2.0], "五虎群羊阵", 'l',
-    [1.5, -0.4, 2.3], "六丁六甲阵", 'r',
-    [-2.4, -0.9, 0.3], "七星北斗阵", 'l',
-    [-0.0, 0.3, 0.8], "八门金锁阵", 'l',
-    [4.0, 1.5, -1.8], "九字连环阵", 'r',
-];
-const cellDataUnit = 3;
+const cameraTarget = new THREE.Vector3(0,0,0);
+const cameraObject = new THREE.Object3D();
+let cameraObjectOrg;
 
 const cellRadius = 1.33;
 const cellScale = 0.2;
@@ -115,7 +104,7 @@ const cellsGeoGroup = new THREE.Group();
 const axonHeadIndexSets = [];
 const axonHeadIndexSetInitArray = [];
 
-const cellCameraFacusDist = cellRadius * cellScale * 8;
+const cellCameraFocusDist = cellRadius * cellScale * 8;
 
 const cssScale = 0.01;
 
@@ -188,29 +177,13 @@ function init(){
         nucleusHigh: null,
     };
 
+    initCSSTitle();
 
-    for(let i = 0; i < cellData.length; i += cellDataUnit){
-        const element = document.createElement( 'div' );
-        element.className = 'cellElement';
-        // element.style.backgroundColor = 'rgba(0,127,127,' + ( Math.random() * 0.5 + 0.25 ) + ')';
-        element.style.backgroundColor = 'rgba(0,0,0,0)';
+    initCSSFocus(focusTitleObjR, focusTitleParamR, 'cellTitle', 'cellTitle focus');
+    initCSSFocus(focusTitleObjL, focusTitleParamL, 'cellTitle', 'cellTitle focus');
 
-
-        const name = document.createElement( 'div' );
-        name.className = 'cellName txtMoveIn';
-        name.textContent = cellData[ i + 1 ];
-        element.appendChild( name );
-
-        const objectCSS = new THREE.CSS3DObject( element );
-        const cellPos = new THREE.Vector3(cellData[i][0], cellData[i][1], cellData[i][2]);
-        const dir = new THREE.Vector3().subVectors(camera.position, cellPos).normalize();
-        const txtPos = cellPos.addScaledVector(dir, cellTxtDisRaduis);
-        objectCSS.position.copy(txtPos);
-        objectCSS.scale.multiplyScalar(cssScale);
-        objectCSS.lookAt(camera.position.clone());
-        sceneCSS.add( objectCSS );
-        objectCSSList.push(objectCSS);
-    }    
+    initCSSFocus(focusContentObjR, focusContentParamR, 'cellContent', 'cellContent cellTxt pre');
+    initCSSFocus(focusContentObjL, focusContentParamL, 'cellContent', 'cellContent cellTxt pre');
 
     for(let i = 0; i < axon.AxonCount; i++){
         axonHeadIndexSetInitArray.push(i);
@@ -293,7 +266,7 @@ function init(){
 
             initCellCameraFocus(cell, cellData[i + 2]);
 
-            initCssFocus(cell);
+            // initCSSFocus(cell, cellData[i + 2]);
 
             cellList.push(cell);
             cellsGroup.add(cell);
@@ -370,29 +343,118 @@ function init(){
 
 }
 
+function initCSSTitle(){
+    for(let i = 0; i < cellData.length; i += cellDataUnit){
+        const element = document.createElement( 'div' );
+        element.className = 'cellTitle';
+        // element.style.backgroundColor = 'rgba(0,127,127,' + ( Math.random() * 0.5 + 0.25 ) + ')';
+        element.style.backgroundColor = 'rgba(0,0,0,0)';
+
+
+        const name = document.createElement( 'div' );
+        name.className = 'cellName txtMoveIn';
+        name.textContent = cellData[ i + 1 ];
+        element.appendChild( name );
+
+        const objectCSS = new THREE.CSS3DObject( element );
+        const cellPos = new THREE.Vector3(cellData[i][0], cellData[i][1], cellData[i][2]);
+        const dir = new THREE.Vector3().subVectors(camera.position, cellPos).normalize();
+        const txtPos = cellPos.addScaledVector(dir, cellTxtDisRaduis);
+        objectCSS.position.copy(txtPos);
+        objectCSS.scale.multiplyScalar(cssScale);
+        objectCSS.lookAt(camera.position.clone());
+        sceneCSS.add( objectCSS );
+        objectCSSList.push(objectCSS);
+    }
+}
+
+let focusTitleObjR = {
+    textEle : null,
+    cssObj : null, 
+};
+const focusTitleParamR = {
+    worldPos : new THREE.Vector3(0.8, 0, 3),
+    axisWorldPos : new THREE.Vector3(0.8, 0, 2.7),
+    initAngle : Math.PI / 3,
+    currentAngle: 0,
+};
+
+let focusTitleObjL = {
+    textEle : null,
+    cssObj : null, 
+};
+const focusTitleParamL = {
+    worldPos : new THREE.Vector3(-0.8, 0, 3),
+    axisWorldPos : new THREE.Vector3(-0.8, 0, 2.7),
+    initAngle : -Math.PI / 3,
+    currentAngle: 0,
+};
+
+let focusContentObjR = {
+    textEle : null,
+    cssObj : null, 
+};
+const focusContentParamR = {
+    worldPos : new THREE.Vector3(1.7, 0, 1),
+    axisWorldPos : new THREE.Vector3(1.7, 0, -1.0),
+    initAngle : Math.PI / 3,
+    currentAngle: 0,
+};
+
+let focusContentObjL = {
+    textEle : null,
+    cssObj : null, 
+};
+const focusContentParamL = {
+    worldPos : new THREE.Vector3(-1.7, 0, 1),
+    axisWorldPos : new THREE.Vector3(-1.7, 0, -1.0),
+    initAngle : -Math.PI / 3,
+    currentAngle: 0,
+};
+
+function initCSSFocus(obj, focusParam, outerClass, innerClass) {
+    const element = document.createElement( 'div' );
+    element.className = outerClass;
+    element.style.backgroundColor = 'rgba(0,0,0,0)';
+
+    obj.textEle = document.createElement( 'div' );
+    obj.textEle.className = innerClass;
+    element.appendChild( obj.textEle );
+
+    obj.cssObj = new THREE.CSS3DObject( element );
+    obj.cssObj.visible = false;
+    cameraObject.position.copy(camera.position);
+    cameraObject.rotation.copy(camera.rotation);
+    cameraObject.updateMatrixWorld();
+    cameraObjectOrg = cameraObject.clone();
+
+    let worldPos = focusParam.worldPos.clone();
+    let localPos = cameraObject.worldToLocal(worldPos);
+    obj.cssObj.position.copy(localPos);
+
+
+    obj.cssObj.scale.multiplyScalar(cssScale);
+    
+    cameraObject.add(obj.cssObj);
+
+    sceneCSS.add( cameraObject );
+
+}
+
+
 function initCellCameraFocus(cell, targetLoc){
     const dir = new THREE.Vector3().subVectors(cell.orgPos, new THREE.Vector3(0,0,0)).normalize();
     cell.CameraFocusPos = new THREE.Vector3().copy(cell.orgPos);
-    cell.CameraFocusPos.addScaledVector(dir, cellCameraFacusDist);
-    cell.CameraFocusTarget = new THREE.Vector3(0,0,0);
+    cell.CameraFocusPos.addScaledVector(dir, cellCameraFocusDist);
+    const crossDir = (new THREE.Vector3()).crossVectors(dir, camera.up).normalize();
+    cell.CameraFocusPosCross = new THREE.Vector3().copy(cell.CameraFocusPos);
 
-    let mat4;
     if(targetLoc === 'l'){
-        mat4 = makeObjectTransformMatrix(cell.CameraFocusPos, 
-            new THREE.Vector3(), new THREE.Vector3(0, -Math.PI / 9, 0), new THREE.Vector3(1,1,1));
+        cell.CameraFocusPosCross.addScaledVector(crossDir, -0.65);
     }else if(targetLoc === 'r'){
-        mat4 = makeObjectTransformMatrix(cell.CameraFocusPos, 
-            new THREE.Vector3(), new THREE.Vector3(0, Math.PI / 9, 0), new THREE.Vector3(1,1,1));
+        cell.CameraFocusPosCross.addScaledVector(crossDir, 0.65);
     }
-    
-    cell.CameraFocusTarget.applyMatrix4(mat4);
-}
 
-function initCssFocus(cell){
-    const dir = new THREE.Vector3().subVectors(cell.orgPos, new THREE.Vector3(0,0,0)).normalize();
-    cell.cssFocusPos = new THREE.Vector3().copy(cell.orgPos);
-    cell.cssFocusPos.addScaledVector(dir, cellTxtDisRaduis);
-    
 }
 
 function selectFromAxonHeadIndexSet(setIndex){
@@ -864,8 +926,12 @@ function loadEnvironment( name ) {
 }
 
 let clickCell = false;
-const cellCameraFocusTimeMS = 3000;
+const cellCameraFocusTimeMS = 2000;
+const cellCameraFocusDelayMS = 500;
 let mixFac = 0.0;
+
+const focusTitleTimeMS = 1000;
+const focusTitleDelayMS = 500;
 
 
 function onPointerDown(event) {
@@ -876,37 +942,100 @@ function onPointerDown(event) {
             objectCSSList[i].element.children[0].className = "cellName txtMoveOut";
         }
         
-        new TWEEN.Tween( this )
-        .to( {}, 500 )
-        .onComplete( ()=>{
-            objectCSSList[CELL_INTERSECTED.cellIndex].element.children[0].className = "cellName focus";
-            objectCSSList[CELL_INTERSECTED.cellIndex].position.copy(cellList[CELL_INTERSECTED.cellIndex].cssFocusPos);
-        } ).start();
 
         const cell = cellsGroup.children[CELL_INTERSECTED.cellIndex];
         new TWEEN.Tween( camera.position )
         .to( {x : cell.CameraFocusPos.x, y : cell.CameraFocusPos.y, z : cell.CameraFocusPos.z}, cellCameraFocusTimeMS )
         // .easing( TWEEN.Easing.Linear.None )
-        .easing( TWEEN.Easing.Quadratic.InOut )
-        .delay( 500 )
+        .easing( TWEEN.Easing.Quadratic.In )
+        .delay( cellCameraFocusDelayMS )
+        .onUpdate(() =>{
+        })
         .onComplete( ()=>{
-        } ).start();
 
-        new TWEEN.Tween( cameraTarget )
-        .to( {x : cell.CameraFocusTarget.x, y : cell.CameraFocusTarget.y, z : cell.CameraFocusTarget.z}, cellCameraFocusTimeMS )
-        // .easing( TWEEN.Easing.Linear.None )
-        .easing( TWEEN.Easing.Quadratic.InOut )
-        .delay( 500 )
-        .onComplete( ()=>{
-        } ).start();
+            const mat4 = new THREE.Matrix4();
+            function addfocusTitleAnim(obj, param){
+                param.currentAngle = param.initAngle;
+                obj.cssObj.visible = true;
+                new TWEEN.Tween(param)
+                .to( {currentAngle : 0}, focusTitleTimeMS)
+                .delay( focusTitleDelayMS )
+                .easing( TWEEN.Easing.Linear.None )
+                .onUpdate(() =>{
+                    obj.textEle.textContent = cellData[ CELL_INTERSECTED.cellIndex * cellDataUnit + 1 ];
+                    updateObjectTransformMatrix(mat4,
+                        param.axisWorldPos, 
+                        new THREE.Vector3(), 
+                        new THREE.Vector3(0, param.currentAngle, 0), 
+                        new THREE.Vector3(1,1,1));
 
+                    let posWorld = param.worldPos.clone();
+                    posWorld.applyMatrix4(mat4);
+                    let posLocal = cameraObjectOrg.worldToLocal(posWorld);
+                    obj.cssObj.position.copy(posLocal);
+
+                    obj.cssObj.rotation.set(0, param.currentAngle, 0);
+                })
+                .onComplete( ()=>{
+                } ).start();
+            }
+
+            function addfocusContentAnim(obj, param){
+                param.currentAngle = param.initAngle;
+                obj.cssObj.visible = true;
+                new TWEEN.Tween(param)
+                .to( {currentAngle : 0}, focusTitleTimeMS)
+                .delay( focusTitleDelayMS )
+                .easing( TWEEN.Easing.Linear.None )
+                .onUpdate(() =>{
+                    // obj.textEle.textContent = cellContentData[ CELL_INTERSECTED.cellIndex ];
+                    obj.textEle.innerHTML = cellContentData[ CELL_INTERSECTED.cellIndex ];
+                    updateObjectTransformMatrix(mat4,
+                        param.axisWorldPos, 
+                        new THREE.Vector3(), 
+                        new THREE.Vector3(0, param.currentAngle, 0), 
+                        new THREE.Vector3(1,1,1));
+
+                    let posWorld = param.worldPos.clone();
+                    posWorld.applyMatrix4(mat4);
+                    let posLocal = cameraObjectOrg.worldToLocal(posWorld);
+                    obj.cssObj.position.copy(posLocal);
+
+                    obj.cssObj.rotation.set(0, param.currentAngle, 0);
+                })
+                .onComplete( ()=>{
+                } ).start();
+            }
+
+            
+            if(cellData[CELL_INTERSECTED.cellIndex * cellDataUnit + 2] === 'r'){
+                addfocusTitleAnim(focusTitleObjR, focusTitleParamR);
+                addfocusContentAnim(focusContentObjL, focusContentParamL);
+            }else{
+                addfocusTitleAnim(focusTitleObjL, focusTitleParamL);
+                addfocusContentAnim(focusContentObjR, focusContentParamR);
+            }
+
+            isCameraLookAtTarget = false;
+
+            new TWEEN.Tween( camera.position )
+            .to( {x : cell.CameraFocusPosCross.x, y : cell.CameraFocusPosCross.y, z : cell.CameraFocusPosCross.z}, cellCameraFocusTimeMS )
+            .easing( TWEEN.Easing.Quadratic.Out )
+            .onUpdate(() =>{
+            })
+            .onComplete( ()=>{
+            } ).start();
+
+
+
+        } ).start();
 
         mixFac = ssFacMixCombineMaterial.uniforms[ 'factor' ];
         new TWEEN.Tween( mixFac )
         .to( {value : 1.0}, cellCameraFocusTimeMS )
         .easing( TWEEN.Easing.Linear.None )
         // .easing( TWEEN.Easing.Quadratic.In )
-        .delay( 500 )
+        .delay( cellCameraFocusDelayMS )
         .onComplete( ()=>{
         } ).start();
 
@@ -949,11 +1078,20 @@ function onPointerMove( event ) {
 
 }
 
+let isCameraLookAtTarget = true;
+
 function updateCamera(){
     if(!clickCell){
         updateCameraPitchAndYaw();
     }
-    camera.lookAt( cameraTarget );
+
+    if(isCameraLookAtTarget){
+        camera.lookAt( cameraTarget );
+    }
+    
+
+    cameraObject.position.copy(camera.position);
+    cameraObject.rotation.copy(camera.rotation);
 }
 
 function updateCameraPitchAndYaw(){
@@ -1027,7 +1165,8 @@ function buildGui(){
         loadEnvironment( value );
     } );
 
-    folder1.open();
+    folder1.close();
+    gui.close();
 }
 
 const clock = new THREE.Clock();
@@ -1050,8 +1189,6 @@ function animate(){
     updateCamera();
 
     updateCssLookAtCamera();
-
-    // ssBlurMFMaterial.uniforms[ 'mousePos' ].value = mousePos;
 
     findPointCell();
     updateFocus();
@@ -1158,14 +1295,14 @@ function updateAxonListFac(elapsedTime, list){
     for(let i = 0; i < axonLightList.length; i++){
         axonLightList[i].pointLightMesh.material.rootDisplacementFac = list[axonLightList[i].cellIndex].material.displacementFac;
         axonLightList[i].pointLightMesh.material.time = elapsedTime;
-        
     }
-
 }
 
 function updateCssLookAtCamera() {
-    for(let i = 0; i < objectCSSList.length; i++){
-        objectCSSList[i].lookAt(camera.position.clone());
+    if(!clickCell){
+        for(let i = 0; i < objectCSSList.length; i++){
+            objectCSSList[i].lookAt(camera.position.clone());
+        }
     }
 }
 
@@ -1174,12 +1311,12 @@ const pointer = new THREE.Vector2(1.0, 1.0);
 let CELL_INTERSECTED = null;
 
 function findPointCell(){
+    if(clickCell) return;
+    
     raycaster.setFromCamera( pointer, camera );
     let intersects = raycaster.intersectObjects( membraneList );
     if ( intersects.length > 0 ) {
         if(CELL_INTERSECTED != intersects[ 0 ].object){
-            // const index = intersects[ 0 ].object.cellIndex;
-            // console.log(cellData[index * 2 + 1]);
             CELL_INTERSECTED = intersects[ 0 ].object;
         }
         
@@ -1270,11 +1407,6 @@ function updateFocus(){
 
 function framePrint(){
 
-    // console.log(axonLightList[0].pointLightMesh.material.layer0);
-    // console.log(axonLightList[0].pointLightMesh.material.layer1);
-    // console.log(axonLightList[0].pointLightMesh.material.layerFac);
-    
-    
 }
 
 function updatePointLight(){

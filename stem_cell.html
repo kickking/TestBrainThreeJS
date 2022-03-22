@@ -15,7 +15,48 @@
 				z-index: 1;
 			}
 
-			.cellElement {
+			.cellContent {
+				position: absolute;
+				width: 300px;
+				height: 300px;
+				/* box-shadow: 0px 0px 12px rgba(0,255,255,0.5);
+				border: 1px solid rgba(127,255,255,0.25); */
+				/* font-family: Helvetica, sans-serif; */
+				text-align: left;
+				line-height: normal;
+				cursor: default;
+				z-index: 10;
+				overflow-x: hidden;
+				overflow-y: scroll;
+			}
+
+			.cellContent::-webkit-scrollbar {
+				display: none;
+			}
+
+			.cellContent .cellTxt {
+				position: absolute;
+				top: 0px;
+				left: 0px;
+				right: 0px;
+				font-size: 1px;
+				/* font-weight: bold; */
+				/* background-color: brown; */
+				color: rgba(255,255,255,1.0);
+				text-shadow: 0 0 10px rgb(226, 116, 13);
+			}
+
+			.cellContent .pre {
+				white-space: pre-wrap;
+				white-space: -moz-pre-wrap;
+				white-space: -pre-wrap;
+				white-space: -o-pre-wrap;
+				*word-wrap: break-word;
+				*white-space : normal ; 
+			}
+
+
+			.cellTitle {
 				position: absolute;
 				width: 128px;
 				height: 12px;
@@ -36,7 +77,7 @@
 						transform: translate(0px,-20px) skew(0deg, 0deg);
 					}
 				}
-				.cellElement .txtMoveIn{
+				.cellTitle .txtMoveIn{
 					animation: txtMoveIn 0.5s linear 0.1s 1 forwards;
 				}
 
@@ -48,23 +89,30 @@
 						transform: translate(0px,-40px);
 					}
 				}
-				.cellElement .txtMoveOut{
+				.cellTitle .txtMoveOut{
 					animation: txtMoveOut 0.5s linear 1 forwards;
 				}
 
-				.cellElement .cellName {
+				.cellTitle .cellName {
 					position: absolute;
 					top: 20px;
 					left: 0px;
 					right: 0px;
 					font-size: 1px;
 					/* font-weight: bold; */
+					/* background-color: brown; */
 					color: rgba(255,255,255,1.0);
 					text-shadow: 0 0 10px rgb(226, 116, 13);
 				}
 
-				.cellElement .focus {
-					top : 0px;
+				.cellTitle .focus {
+					position: absolute;
+					top: 0px;
+					left: 0px;
+					right: 0px;
+					font-size: 1px;
+					color: rgba(255,255,255,1.0);
+					text-shadow: 0 0 10px rgb(226, 116, 13);
 				}
 
 		</style>
@@ -98,6 +146,7 @@
 		<script src="renderers/materials/AxonPointLightMaterial.js"></script>
 		<script src="renderers/SSGaussianBlurPass.js"></script>
 		<script src="axon.js"></script>
+		<script src="stem_cell_data.js"></script>
         <script type="module" src="stem_cell.js"></script>
 	</body>
 </html>

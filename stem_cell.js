@@ -111,6 +111,9 @@ const cssScale = 0.01;
 const axonLightList = [];
 const axonLightCount = 1;
 const baseLayerFacAccPS = 10;
+const pointLightFadeInOutPS = 1;
+const axonLightMaterialIntensityFull = 10;
+const axonLightIntensityFull = 2;
 let gaussianPass;
 
 function init(){
@@ -124,6 +127,7 @@ function init(){
     camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.25, 100 );
     camera.position.set( cameraPos.x, cameraPos.y, cameraPos.z );
     camera.lookAt(0,0,0);
+    cameraPYMatrix.copy(camera.clone().matrixWorld);
 
     initRenderTarget();
 
@@ -311,7 +315,7 @@ function init(){
 
     gaussianPass = new THREE.SSGaussianBlurPass({
         texture: renderTargetMinCombine.texture,
-        blurData: [5],
+        blurData: [3],
     });
 
     screenMesh = new THREE.Mesh(new THREE.PlaneGeometry( 2, 2 ), ssDarkenMFMaterial);
@@ -486,7 +490,9 @@ function initLightMaterialProp(pointLight, cIndex, flag){
         const pointLightMesh = new THREE.Mesh( new THREE.SphereGeometry( 0.01, 6, 6 ), lightMaterial);
         pointLight.add(pointLightMesh);
         pointLight.pointLightMesh = pointLightMesh;
-        pointLight.add( new THREE.PointLight( color.getHex(), 2, 2 ) );
+        const light = new THREE.PointLight( color.getHex(), axonLightIntensityFull, 2 );
+        pointLight.add( light );
+        pointLight.light = light;
     }
 
     const cellIndex = (cIndex >= 0) ? cIndex : pointLight.cellIndex;
@@ -512,9 +518,12 @@ function initLightMaterialProp(pointLight, cIndex, flag){
     pointLight.headIndex = headIndex;
     pointLight.axonNode = axonNode;
 
-    
     pointLight.layerFacAccPS = baseLayerFacAccPS * (Math.random() + 0.5) ;
     pointLight.layerFac = 0;
+    pointLight.fadeInOutPS = pointLightFadeInOutPS;
+    pointLight.fadeInOutFac = 0;
+    pointLight.pointLightMesh.material.intensity = axonLightMaterialIntensityFull * pointLight.fadeInOutFac;
+    pointLight.light.intensity = axonLightIntensityFull * pointLight.fadeInOutFac;
     
 }
 
@@ -875,11 +884,13 @@ function initMaterial(){
         layerMax: axon.AxonLayerMaxCount,
 
         color: 0x00ff00,
-        intensity: 10,
+        // intensity: 10,
     });
+
     axonLightMaterial.rootDisplacementFac = 0;
     axonLightMaterial.layerFac = 0;
     axonLightMaterial.time = 0;
+    axonLightMaterial.intensity = axonLightIntensityFull;
 
     axonLightExtractMaterial = new THREE.ShaderMaterial({
         uniforms: THREE.UniformsUtils.clone( THREE.SSExtractBrightnessExceedShader.uniforms ),
@@ -925,7 +936,8 @@ function loadEnvironment( name ) {
         } );
 }
 
-let clickCell = false;
+let focusFlag = false;
+let focusAnimFlag = false;
 const cellCameraFocusTimeMS = 2000;
 const cellCameraFocusDelayMS = 500;
 let mixFac = 0.0;
@@ -936,8 +948,9 @@ const focusTitleDelayMS = 500;
 
 function onPointerDown(event) {
 
-    if(CELL_INTERSECTED && !clickCell){
-        clickCell = true;
+    if(CELL_INTERSECTED && !focusFlag){
+        focusFlag = true;
+        focusAnimFlag = true;
         for(let i = 0; i < objectCSSList.length; i++){
             objectCSSList[i].element.children[0].className = "cellName txtMoveOut";
         }
@@ -952,7 +965,6 @@ function onPointerDown(event) {
         .onUpdate(() =>{
         })
         .onComplete( ()=>{
-
             const mat4 = new THREE.Matrix4();
             function addfocusTitleAnim(obj, param){
                 param.currentAngle = param.initAngle;
@@ -988,7 +1000,6 @@ function onPointerDown(event) {
                 .delay( focusTitleDelayMS )
                 .easing( TWEEN.Easing.Linear.None )
                 .onUpdate(() =>{
-                    // obj.textEle.textContent = cellContentData[ CELL_INTERSECTED.cellIndex ];
                     obj.textEle.innerHTML = cellContentData[ CELL_INTERSECTED.cellIndex ];
                     updateObjectTransformMatrix(mat4,
                         param.axisWorldPos, 
@@ -1024,6 +1035,12 @@ function onPointerDown(event) {
             .onUpdate(() =>{
             })
             .onComplete( ()=>{
+                cameraPYMatrix.copy(camera.clone().matrixWorld);
+                mouseMovFac = 0.0002;
+                cameraBasePos.set(0,0,0);
+                targetCameraX = 0;
+                targetCameraY = 0;
+                focusAnimFlag = false;
             } ).start();
 
 
@@ -1049,10 +1066,11 @@ let mouseX = 0, mouseY = 0;
 let windowHalfX = window.innerWidth / 2;
 let windowHalfY = window.innerHeight / 2;
 
-let targetCameraX = cameraPos.x;
-let targetCameraY = cameraPos.y;
-let targetCameraZ = cameraPos.z;
-const mouseMovFac = 0.001;
+let cameraBasePos = new THREE.Vector3();
+let targetCameraX = 0;
+let targetCameraY = 0;
+let targetCameraZ = 0;
+let mouseMovFac = 0.001;
 
 let cameraAccFac = 0.01;
 let cameraAccMin = 0.0001;
@@ -1069,9 +1087,8 @@ function onPointerMove( event ) {
     mouseX = event.clientX - windowHalfX;
     mouseY = event.clientY - windowHalfY;
 
-    targetCameraX = cameraPos.x + mouseX * mouseMovFac;
-    targetCameraY = cameraPos.y - mouseY * mouseMovFac;
-    // targetCameraZ = cameraPos.z + mouseY * mouseMovFac;
+    targetCameraX = mouseX * mouseMovFac;
+    targetCameraY = -mouseY * mouseMovFac;
 
     pointer.x = ( event.clientX / window.innerWidth ) * 2 - 1;
 	pointer.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
@@ -1081,7 +1098,7 @@ function onPointerMove( event ) {
 let isCameraLookAtTarget = true;
 
 function updateCamera(){
-    if(!clickCell){
+    if(!focusAnimFlag){
         updateCameraPitchAndYaw();
     }
 
@@ -1094,19 +1111,26 @@ function updateCamera(){
     cameraObject.rotation.copy(camera.rotation);
 }
 
+
+const cameraPYMatrix = new THREE.Matrix4();
+
 function updateCameraPitchAndYaw(){
-    let accX = Math.abs(camera.position.x - targetCameraX) * cameraAccFac;
+    let accX = Math.abs(cameraBasePos.x - targetCameraX) * cameraAccFac;
     accX = accX > cameraAccMin ? accX : 0;
 
-    let accY = Math.abs(camera.position.y - targetCameraY) * cameraAccFac;
+    let accY = Math.abs(cameraBasePos.y - targetCameraY) * cameraAccFac;
     accY = accY > cameraAccMin ? accY : 0;
 
-    let accZ = Math.abs(camera.position.z - targetCameraZ) * cameraAccFac;
+    let accZ = Math.abs(cameraBasePos.z - targetCameraZ) * cameraAccFac;
     accZ = accZ > cameraAccMin ? accZ : 0;
 
-    camera.position.x += Math.sign(targetCameraX - camera.position.x) * accX;
-    camera.position.y += Math.sign(targetCameraY - camera.position.y) * accY;
-    camera.position.z += Math.sign(targetCameraZ - camera.position.z) * accZ;
+    cameraBasePos.x += Math.sign(targetCameraX - cameraBasePos.x) * accX;
+    cameraBasePos.y += Math.sign(targetCameraY - cameraBasePos.y) * accY;
+    cameraBasePos.z += Math.sign(targetCameraZ - cameraBasePos.z) * accZ;
+
+    const pos = cameraBasePos.clone();
+    pos.applyMatrix4(cameraPYMatrix);
+    camera.position.copy(pos);
 
 }
 
@@ -1204,7 +1228,7 @@ function animate(){
 
 }
 
-const framePrintIntervalPS = 1;
+const framePrintIntervalPS = 0.1;
 let framePrintAcc = 0;
 
 function updateFramePrint(){
@@ -1299,7 +1323,7 @@ function updateAxonListFac(elapsedTime, list){
 }
 
 function updateCssLookAtCamera() {
-    if(!clickCell){
+    if(!focusFlag){
         for(let i = 0; i < objectCSSList.length; i++){
             objectCSSList[i].lookAt(camera.position.clone());
         }
@@ -1311,7 +1335,7 @@ const pointer = new THREE.Vector2(1.0, 1.0);
 let CELL_INTERSECTED = null;
 
 function findPointCell(){
-    if(clickCell) return;
+    if(focusFlag) return;
     
     raycaster.setFromCamera( pointer, camera );
     let intersects = raycaster.intersectObjects( membraneList );
@@ -1343,9 +1367,9 @@ let colorTween;
 function updateFocus(){
     if(!deltaTime) return;
 
-    // if(clickCell) return;
+    // if(focusFlag) return;
 
-    if(CELL_INTERSECTED && !clickCell){
+    if(CELL_INTERSECTED && !focusFlag){
         darkenFac -= darkenFacSpeedPS * deltaTime;
         darkenFac = Math.max(darkenFac, darkenFacMin);
 
@@ -1406,7 +1430,9 @@ function updateFocus(){
 }
 
 function framePrint(){
-
+    const pointLight = axonLightList[0];
+    console.log(pointLight.light.intensity)
+    
 }
 
 function updatePointLight(){
@@ -1425,6 +1451,13 @@ function updatePointLight(){
         pointLight.layerFac = acc - a;
 
         if(pointLight.axonNode.branches.length > 0){
+            if(pointLight.fadeInOutFac < 1){
+                const fac = pointLight.fadeInOutFac + deltaTime * pointLight.fadeInOutPS;
+                pointLight.fadeInOutFac = Math.min(fac, 1);
+            }
+            pointLight.pointLightMesh.material.intensity = axonLightMaterialIntensityFull * pointLight.fadeInOutFac;
+            pointLight.light.intensity = axonLightIntensityFull * pointLight.fadeInOutFac;
+
             if(a === 1){
                 randBranchIndex = getRandomIntBetween(0, pointLight.axonNode.branches.length - 1);
                 node = pointLight.axonNode.branches[randBranchIndex];
@@ -1449,13 +1482,23 @@ function updatePointLight(){
             pointLight.position.lerpVectors(pos, nextPos, pointLight.layerFac);
             pointLight.axonNode = node;
         }else{
-            const cellIndex = pointLight.cellIndex;
-            initLightMaterialProp(pointLight, cellIndex, false);
-            const headIndex = pointLight.headIndex;
-            node = nucleusHighList[cellIndex].axonListHeads[headIndex];
-            randBranchIndex = getRandomIntBetween(0, node.branches.length - 1);
-            nextNode = node.branches[randBranchIndex];
-            pointLight.layerFac = 0;
+            if(pointLight.fadeInOutFac === 0){
+                const cellIndex = pointLight.cellIndex;
+                initLightMaterialProp(pointLight, cellIndex, false);
+                const headIndex = pointLight.headIndex;
+                node = nucleusHighList[cellIndex].axonListHeads[headIndex];
+                randBranchIndex = getRandomIntBetween(0, node.branches.length - 1);
+                nextNode = node.branches[randBranchIndex];
+                // pointLight.layerFac = 0;
+            }else{
+                node = pointLight.axonNode;
+                nextNode = node;
+                const fac = pointLight.fadeInOutFac - deltaTime * pointLight.fadeInOutPS;
+                pointLight.fadeInOutFac = Math.max(fac, 0);
+                pointLight.pointLightMesh.material.intensity = axonLightMaterialIntensityFull * pointLight.fadeInOutFac;
+                pointLight.light.intensity = axonLightIntensityFull * pointLight.fadeInOutFac;
+
+            }
         }
         pointLight.pointLightMesh.material.layerFac = pointLight.layerFac;
         pointLight.pointLightMesh.material.layer0 = node.layer;
@@ -1495,7 +1538,7 @@ function render(){
         renderer.render( sceneScreen, camera );
     }
     
-    if(mixFac != 0){
+    // if(mixFac != 0){
         setChildrenVisibleByName(cellsGeoGroup, 'cellGeo', true);
         renderer.setRenderTarget( renderTargetCellGeo );
         renderer.clear();
@@ -1532,6 +1575,7 @@ function render(){
         // renderer.render( sceneScreen, camera );
     
         screenMesh.material = ssShowMaterial;
+        // ssShowMaterial.uniforms[ 'tScreen' ].value = renderTargetCellGeo.texture;
         // ssShowMaterial.uniforms[ 'tScreen' ].value = renderTargetAddCombine.texture;
         ssShowMaterial.uniforms[ 'tScreen' ].value = renderTargetGaussianBlur.texture;
         ssShowMaterial.uniforms[ 'toneMapping' ].value = true;
@@ -1539,7 +1583,7 @@ function render(){
         // renderer.setRenderTarget( null );
         renderer.clear();
         renderer.render( sceneScreen, camera );
-    }
+    // }
 
     screenMesh.material = ssFacMixCombineMaterial;
     renderer.setRenderTarget( null );

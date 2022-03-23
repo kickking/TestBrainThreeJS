@@ -6,6 +6,7 @@
         #layer0 = 0;
         #layer1 = 0;
         #layerFac = 0;
+        #intensity = 1.0;
 
         constructor(parameters) {
             super();
@@ -20,9 +21,20 @@
             this.rootUV = null;
             this.rootRands = null;
 
-            this.intensity = 1.0;
+            // this.intensity = 1.0;
 
             this.setValues( parameters );
+        }
+
+        set intensity(value){
+            this.#intensity = value;
+            if(this.#shader){
+                this.#shader.uniforms.intensity.value = value;
+            }
+        }
+
+        get intensity() {
+            return this.#intensity;
         }
 
         set rootDisplacementFac(value){
@@ -96,7 +108,7 @@
             shader.uniforms.layerFac = { value: this.#layerFac };
             
 
-            shader.uniforms.intensity = { value: this.intensity };
+            shader.uniforms.intensity = { value: this.#intensity };
 
             let token, insert, replacement;
             

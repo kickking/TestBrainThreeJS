@@ -11,6 +11,13 @@
             this.setSize = function(width, height){
                 _width = width;
                 _height = height;
+                resetRenderTargets();
+            }
+
+            function resetRenderTargets(){
+                for(let i = 0; i < _ppRenderTargets.length; i++){
+                    _ppRenderTargets[i].setSize(_width * 2, _height * 2);
+                }
             }
 
             this.setTexture = function(value){
@@ -22,17 +29,19 @@
             }
 
             let _ppRenderTargets = [];
-            let abc;
-            for(let i = 0; i < 2; i++){
-                const rt = new THREE.WebGLRenderTarget( _width * 2, _height * 2,
-                    { 
-                        minFilter: THREE.LinearFilter, 
-                        magFilter: THREE.NearestFilter, 
-                        type: THREE.FloatType,
-                    });
-
-                    _ppRenderTargets.push(rt);
+            function initRenderTargets(){
+                for(let i = 0; i < 2; i++){
+                    const rt = new THREE.WebGLRenderTarget( _width * 2, _height * 2,
+                        { 
+                            minFilter: THREE.LinearFilter, 
+                            magFilter: THREE.NearestFilter, 
+                            type: THREE.FloatType,
+                        });
+    
+                        _ppRenderTargets.push(rt);
+                }
             }
+            initRenderTargets();
 
             const _blurMaterialH = new THREE.ShaderMaterial({
                 defines: Object.assign( {}, THREE.SSGaussianBlurShader.defines ),

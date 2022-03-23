@@ -315,7 +315,7 @@ function init(){
 
     gaussianPass = new THREE.SSGaussianBlurPass({
         texture: renderTargetMinCombine.texture,
-        blurData: [3],
+        blurData: [5],
     });
 
     screenMesh = new THREE.Mesh(new THREE.PlaneGeometry( 2, 2 ), ssDarkenMFMaterial);
@@ -1430,8 +1430,6 @@ function updateFocus(){
 }
 
 function framePrint(){
-    const pointLight = axonLightList[0];
-    console.log(pointLight.light.intensity)
     
 }
 

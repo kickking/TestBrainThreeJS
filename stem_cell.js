@@ -183,11 +183,11 @@ function init(){
 
     initCSSTitle();
 
-    initCSSFocus(focusTitleObjR, focusTitleParamR, 'cellTitle', 'cellTitle focus');
-    initCSSFocus(focusTitleObjL, focusTitleParamL, 'cellTitle', 'cellTitle focus');
+    initCSSFocus(focusTitleObjR, focusTitleParamR, 'cellFocusTitle', 'cellFocusTitle focusName');
+    initCSSFocus(focusTitleObjL, focusTitleParamL, 'cellFocusTitle', 'cellFocusTitle focusName');
 
-    initCSSFocus(focusContentObjR, focusContentParamR, 'cellContent', 'cellContent cellTxt pre');
-    initCSSFocus(focusContentObjL, focusContentParamL, 'cellContent', 'cellContent cellTxt pre');
+    initCSSFocus(focusContentObjR, focusContentParamR, 'cellFocusContent', 'cellFocusContent focusTxt pre');
+    initCSSFocus(focusContentObjL, focusContentParamL, 'cellFocusContent', 'cellFocusContent focusTxt pre');
 
     for(let i = 0; i < axon.AxonCount; i++){
         axonHeadIndexSetInitArray.push(i);
@@ -377,8 +377,8 @@ let focusTitleObjR = {
     cssObj : null, 
 };
 const focusTitleParamR = {
-    worldPos : new THREE.Vector3(0.8, 0, 3),
-    axisWorldPos : new THREE.Vector3(0.8, 0, 2.7),
+    worldPos : new THREE.Vector3(3.5, 0, -5),
+    axisWorldPos : new THREE.Vector3(3.5, 0, -5.5),
     initAngle : Math.PI / 3,
     currentAngle: 0,
 };
@@ -388,8 +388,8 @@ let focusTitleObjL = {
     cssObj : null, 
 };
 const focusTitleParamL = {
-    worldPos : new THREE.Vector3(-0.8, 0, 3),
-    axisWorldPos : new THREE.Vector3(-0.8, 0, 2.7),
+    worldPos : new THREE.Vector3(-3.5, 0, -5),
+    axisWorldPos : new THREE.Vector3(-3.5, 0, -5.5),
     initAngle : -Math.PI / 3,
     currentAngle: 0,
 };
@@ -399,8 +399,8 @@ let focusContentObjR = {
     cssObj : null, 
 };
 const focusContentParamR = {
-    worldPos : new THREE.Vector3(1.7, 0, 1),
-    axisWorldPos : new THREE.Vector3(1.7, 0, -1.0),
+    worldPos : new THREE.Vector3(4.5, 0, -5),
+    axisWorldPos : new THREE.Vector3(4.5, 0, -6),
     initAngle : Math.PI / 3,
     currentAngle: 0,
 };
@@ -410,8 +410,8 @@ let focusContentObjL = {
     cssObj : null, 
 };
 const focusContentParamL = {
-    worldPos : new THREE.Vector3(-1.7, 0, 1),
-    axisWorldPos : new THREE.Vector3(-1.7, 0, -1.0),
+    worldPos : new THREE.Vector3(-4.5, 0, -5),
+    axisWorldPos : new THREE.Vector3(-4.5, 0, -6),
     initAngle : -Math.PI / 3,
     currentAngle: 0,
 };
@@ -423,6 +423,7 @@ function initCSSFocus(obj, focusParam, outerClass, innerClass) {
 
     obj.textEle = document.createElement( 'div' );
     obj.textEle.className = innerClass;
+    // obj.textEle.textContent = '哇哇哇哇';
     element.appendChild( obj.textEle );
 
     obj.cssObj = new THREE.CSS3DObject( element );

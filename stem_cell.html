@@ -15,10 +15,34 @@
 				z-index: 1;
 			}
 
-			.cellContent {
+			.cellFocusTitle {
 				position: absolute;
-				width: 300px;
-				height: 300px;
+				width: 400px;
+				height: 60px;
+				/* box-shadow: 0px 0px 12px rgba(0,255,255,0.5);
+				border: 1px solid rgba(127,255,255,0.25); */
+				/* font-family: Helvetica, sans-serif; */
+				text-align: center;
+				line-height: normal;
+				cursor: default;
+				z-index: 10;
+				overflow: hidden;
+			}
+
+			.cellFocusTitle .focusName {
+					position: absolute;
+					top: 0px;
+					left: 0px;
+					right: 0px;
+					font-size: 40px;
+					color: rgba(255,255,255,1.0);
+					text-shadow: 0 0 10px rgb(226, 116, 13);
+				}
+
+			.cellFocusContent {
+				position: absolute;
+				width: 775px;
+				height: 728px;
 				/* box-shadow: 0px 0px 12px rgba(0,255,255,0.5);
 				border: 1px solid rgba(127,255,255,0.25); */
 				/* font-family: Helvetica, sans-serif; */
@@ -30,23 +54,23 @@
 				overflow-y: scroll;
 			}
 
-			.cellContent::-webkit-scrollbar {
+			.cellFocusContent::-webkit-scrollbar {
 				display: none;
 			}
 
-			.cellContent .cellTxt {
+			.cellFocusContent .focusTxt {
 				position: absolute;
 				top: 0px;
 				left: 0px;
 				right: 0px;
-				font-size: 1px;
+				font-size: 20px;
 				/* font-weight: bold; */
 				/* background-color: brown; */
 				color: rgba(255,255,255,1.0);
 				text-shadow: 0 0 10px rgb(226, 116, 13);
 			}
 
-			.cellContent .pre {
+			.cellFocusContent .pre {
 				white-space: pre-wrap;
 				white-space: -moz-pre-wrap;
 				white-space: -pre-wrap;
@@ -101,16 +125,6 @@
 					font-size: 1px;
 					/* font-weight: bold; */
 					/* background-color: brown; */
-					color: rgba(255,255,255,1.0);
-					text-shadow: 0 0 10px rgb(226, 116, 13);
-				}
-
-				.cellTitle .focus {
-					position: absolute;
-					top: 0px;
-					left: 0px;
-					right: 0px;
-					font-size: 1px;
 					color: rgba(255,255,255,1.0);
 					text-shadow: 0 0 10px rgb(226, 116, 13);
 				}

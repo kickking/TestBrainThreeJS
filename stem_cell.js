@@ -86,8 +86,9 @@ const environments = {
     
 };
 
-const cameraPos = new THREE.Vector3(0,0,5.5);
-const cameraTarget = new THREE.Vector3(0,0,0);
+const cameraInitPos = new THREE.Vector3(0,0,5.5);
+const cameraInitTarget = new THREE.Vector3(0,0,0);
+const cameraCurrentTarget = new THREE.Vector3(0,0,0);
 const cameraObject = new THREE.Object3D();
 let cameraObjectOrg;
 
@@ -125,8 +126,9 @@ function init(){
     sceneCellsGeo = new THREE.Scene();
 
     camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.25, 100 );
-    camera.position.set( cameraPos.x, cameraPos.y, cameraPos.z );
-    camera.lookAt(0,0,0);
+    camera.position.set( cameraInitPos.x, cameraInitPos.y, cameraInitPos.z );
+    cameraCurrentTarget.copy(cameraInitTarget);
+    camera.lookAt(cameraCurrentTarget);
     cameraPYMatrix.copy(camera.clone().matrixWorld);
 
     initRenderTarget();
@@ -183,11 +185,17 @@ function init(){
 
     initCSSTitle();
 
-    initCSSFocus(focusTitleObjR, focusTitleParamR, 'cellFocusTitle', 'cellFocusTitle focusName');
-    initCSSFocus(focusTitleObjL, focusTitleParamL, 'cellFocusTitle', 'cellFocusTitle focusName');
+    initCameraObject();
+    initCSSObject(focusTitleObjR, focusTitleParamR, 'cellFocusTitle', 'focusName');
+    initCSSObject(focusTitleObjL, focusTitleParamL, 'cellFocusTitle', 'focusName');
 
-    initCSSFocus(focusContentObjR, focusContentParamR, 'cellFocusContent', 'cellFocusContent focusTxt pre');
-    initCSSFocus(focusContentObjL, focusContentParamL, 'cellFocusContent', 'cellFocusContent focusTxt pre');
+    initCSSObject(focusContentObjR, focusContentParamR, 'cellFocusContent', 'focusTxt pre');
+    initCSSObject(focusContentObjL, focusContentParamL, 'cellFocusContent', 'focusTxt pre');
+
+    initCSSObject(returnObj, returnParam, 'cellReturn', 'returnTxt txtMoveIn', onReturnClick);
+
+    returnObj.textEle.textContent = '返回';
+    returnObj.cssObj.visible = true;
 
     for(let i = 0; i < axon.AxonCount; i++){
         axonHeadIndexSetInitArray.push(i);
@@ -269,8 +277,6 @@ function init(){
             cell.orgPos = new THREE.Vector3(cellData[i][0], cellData[i][1], cellData[i][2]);
 
             initCellCameraFocus(cell, cellData[i + 2]);
-
-            // initCSSFocus(cell, cellData[i + 2]);
 
             cellList.push(cell);
             cellsGroup.add(cell);
@@ -354,7 +360,6 @@ function initCSSTitle(){
         // element.style.backgroundColor = 'rgba(0,127,127,' + ( Math.random() * 0.5 + 0.25 ) + ')';
         element.style.backgroundColor = 'rgba(0,0,0,0)';
 
-
         const name = document.createElement( 'div' );
         name.className = 'cellName txtMoveIn';
         name.textContent = cellData[ i + 1 ];
@@ -372,54 +377,77 @@ function initCSSTitle(){
     }
 }
 
-let focusTitleObjR = {
-    textEle : null,
-    cssObj : null, 
-};
-const focusTitleParamR = {
+function initCameraObject(){
+    cameraObject.position.copy(camera.position);
+    cameraObject.rotation.copy(camera.rotation);
+    cameraObject.updateMatrixWorld();
+    cameraObjectOrg = cameraObject.clone();
+}
+
+class CellTextObj{
+    constructor() {
+        this.textELe = null;
+        this.cssObj = null;
+    }
+}
+
+class CellTextParam{
+    constructor(param) {
+        this.worldPos = param.worldPos;    
+        this.axisWorldPos = param.axisWorldPos;
+        this.initAngle = param.initAngle;
+        this.currentAngle = param.currentAngle;
+    }
+}
+
+const focusTitleObjR = new CellTextObj();
+const focusTitleParamR = new CellTextParam({
     worldPos : new THREE.Vector3(3.5, 0, -5),
     axisWorldPos : new THREE.Vector3(3.5, 0, -5.5),
     initAngle : Math.PI / 3,
     currentAngle: 0,
-};
+});
 
-let focusTitleObjL = {
-    textEle : null,
-    cssObj : null, 
-};
-const focusTitleParamL = {
+const focusTitleObjL = new CellTextObj();
+const focusTitleParamL = new CellTextParam({
     worldPos : new THREE.Vector3(-3.5, 0, -5),
     axisWorldPos : new THREE.Vector3(-3.5, 0, -5.5),
     initAngle : -Math.PI / 3,
     currentAngle: 0,
-};
+});
 
-let focusContentObjR = {
-    textEle : null,
-    cssObj : null, 
-};
-const focusContentParamR = {
+const focusContentObjR = new CellTextObj();
+const focusContentParamR = new CellTextParam({
     worldPos : new THREE.Vector3(4.5, 0, -5),
     axisWorldPos : new THREE.Vector3(4.5, 0, -6),
     initAngle : Math.PI / 3,
     currentAngle: 0,
-};
+});
 
-let focusContentObjL = {
-    textEle : null,
-    cssObj : null, 
-};
-const focusContentParamL = {
+const focusContentObjL = new CellTextObj();
+const focusContentParamL = new CellTextParam({
     worldPos : new THREE.Vector3(-4.5, 0, -5),
     axisWorldPos : new THREE.Vector3(-4.5, 0, -6),
     initAngle : -Math.PI / 3,
     currentAngle: 0,
-};
+});
 
-function initCSSFocus(obj, focusParam, outerClass, innerClass) {
+const returnObj = new CellTextObj();
+const returnParam = new CellTextParam({
+    worldPos : new THREE.Vector3(0, -4, -5),
+    axisWorldPos : new THREE.Vector3(0, 0, 0),
+    initAngle : 0,
+    currentAngle: 0,
+});
+
+
+function initCSSObject(obj, focusParam, outerClass, innerClass, clickFunc) {
     const element = document.createElement( 'div' );
     element.className = outerClass;
     element.style.backgroundColor = 'rgba(0,0,0,0)';
+    if(clickFunc){
+        element.addEventListener( 'click', clickFunc);
+    }
 
     obj.textEle = document.createElement( 'div' );
     obj.textEle.className = innerClass;
@@ -427,11 +455,7 @@ function initCSSFocus(obj, focusParam, outerClass, innerClass) {
     element.appendChild( obj.textEle );
 
     obj.cssObj = new THREE.CSS3DObject( element );
-    obj.cssObj.visible = false;
-    cameraObject.position.copy(camera.position);
-    cameraObject.rotation.copy(camera.rotation);
-    cameraObject.updateMatrixWorld();
-    cameraObjectOrg = cameraObject.clone();
+    // obj.cssObj.visible = false;
 
     let worldPos = focusParam.worldPos.clone();
     let localPos = cameraObject.worldToLocal(worldPos);
@@ -943,19 +967,63 @@ const cellCameraFocusTimeMS = 2000;
 const cellCameraFocusDelayMS = 500;
 let mixFac = 0.0;
 
-const focusTitleTimeMS = 1000;
-const focusTitleDelayMS = 500;
+const focusTxtTimeMS = 1000;
+const focusTxtDelayMS = 500;
 
+function addRotateCameraTxtAnim(mat4, obj, param, visible, startAngle, endAngle, html, duration, delay){
+    param.currentAngle = startAngle;
+    if(visible){
+        obj.cssObj.visible = true;
+    }
+    
+    new TWEEN.Tween(param)
+    .to( {currentAngle : endAngle}, duration)
+    .delay( delay )
+    .easing( TWEEN.Easing.Linear.None )
+    .onUpdate(() =>{
+        if(html){
+            obj.textEle.innerHTML = html;
+        }
+        
+        updateObjectTransformMatrix(mat4,
+            param.axisWorldPos, 
+            new THREE.Vector3(), 
+            new THREE.Vector3(0, param.currentAngle, 0), 
+            new THREE.Vector3(1,1,1));
+
+        let posWorld = param.worldPos.clone();
+        posWorld.applyMatrix4(mat4);
+        let posLocal = cameraObjectOrg.worldToLocal(posWorld);
+        obj.cssObj.position.copy(posLocal);
+
+        obj.cssObj.rotation.set(0, param.currentAngle, 0);
+    })
+    .onComplete( ()=>{
+        if(!visible){
+            obj.cssObj.visible = false;
+        }
+    } ).start();
+}
+
+function resetFocusAnimFlag(fac){
+    cameraPYMatrix.copy(camera.clone().matrixWorld);
+    mouseMovFac = fac;
+    cameraBasePos.set(0,0,0);
+    targetCameraX = 0;
+    targetCameraY = 0;
+    focusAnimFlag = false;
+}
 
 function onPointerDown(event) {
 
     if(CELL_INTERSECTED && !focusFlag){
+        TWEEN.removeAll();
         focusFlag = true;
         focusAnimFlag = true;
         for(let i = 0; i < objectCSSList.length; i++){
             objectCSSList[i].element.children[0].className = "cellName txtMoveOut";
         }
-        
+        returnObj.cssObj.element.children[0].className = "returnTxt txtMoveOut";
 
         const cell = cellsGroup.children[CELL_INTERSECTED.cellIndex];
         new TWEEN.Tween( camera.position )
@@ -967,65 +1035,19 @@ function onPointerDown(event) {
         })
         .onComplete( ()=>{
             const mat4 = new THREE.Matrix4();
-            function addfocusTitleAnim(obj, param){
-                param.currentAngle = param.initAngle;
-                obj.cssObj.visible = true;
-                new TWEEN.Tween(param)
-                .to( {currentAngle : 0}, focusTitleTimeMS)
-                .delay( focusTitleDelayMS )
-                .easing( TWEEN.Easing.Linear.None )
-                .onUpdate(() =>{
-                    obj.textEle.textContent = cellData[ CELL_INTERSECTED.cellIndex * cellDataUnit + 1 ];
-                    updateObjectTransformMatrix(mat4,
-                        param.axisWorldPos, 
-                        new THREE.Vector3(), 
-                        new THREE.Vector3(0, param.currentAngle, 0), 
-                        new THREE.Vector3(1,1,1));
+            const title = cellData[ CELL_INTERSECTED.cellIndex * cellDataUnit + 1 ];
+            const content = cellContentData[ CELL_INTERSECTED.cellIndex ];
 
-                    let posWorld = param.worldPos.clone();
-                    posWorld.applyMatrix4(mat4);
-                    let posLocal = cameraObjectOrg.worldToLocal(posWorld);
-                    obj.cssObj.position.copy(posLocal);
-
-                    obj.cssObj.rotation.set(0, param.currentAngle, 0);
-                })
-                .onComplete( ()=>{
-                } ).start();
-            }
-
-            function addfocusContentAnim(obj, param){
-                param.currentAngle = param.initAngle;
-                obj.cssObj.visible = true;
-                new TWEEN.Tween(param)
-                .to( {currentAngle : 0}, focusTitleTimeMS)
-                .delay( focusTitleDelayMS )
-                .easing( TWEEN.Easing.Linear.None )
-                .onUpdate(() =>{
-                    obj.textEle.innerHTML = cellContentData[ CELL_INTERSECTED.cellIndex ];
-                    updateObjectTransformMatrix(mat4,
-                        param.axisWorldPos, 
-                        new THREE.Vector3(), 
-                        new THREE.Vector3(0, param.currentAngle, 0), 
-                        new THREE.Vector3(1,1,1));
-
-                    let posWorld = param.worldPos.clone();
-                    posWorld.applyMatrix4(mat4);
-                    let posLocal = cameraObjectOrg.worldToLocal(posWorld);
-                    obj.cssObj.position.copy(posLocal);
-
-                    obj.cssObj.rotation.set(0, param.currentAngle, 0);
-                })
-                .onComplete( ()=>{
-                } ).start();
-            }
-
-            
             if(cellData[CELL_INTERSECTED.cellIndex * cellDataUnit + 2] === 'r'){
-                addfocusTitleAnim(focusTitleObjR, focusTitleParamR);
-                addfocusContentAnim(focusContentObjL, focusContentParamL);
+                addRotateCameraTxtAnim(mat4, focusTitleObjR, focusTitleParamR, true,
+                    focusTitleParamR.initAngle, 0, title, focusTxtTimeMS, focusTxtDelayMS);
+                addRotateCameraTxtAnim(mat4, focusContentObjL, focusContentParamL, true,
+                    focusContentParamL.initAngle, 0, content, focusTxtTimeMS, focusTxtDelayMS)
             }else{
-                addfocusTitleAnim(focusTitleObjL, focusTitleParamL);
-                addfocusContentAnim(focusContentObjR, focusContentParamR);
+                addRotateCameraTxtAnim(mat4, focusTitleObjL, focusTitleParamL, true,
+                    focusTitleParamL.initAngle, 0, title, focusTxtTimeMS, focusTxtDelayMS);
+                addRotateCameraTxtAnim(mat4, focusContentObjR, focusContentParamR, true,
+                    focusContentParamR.initAngle, 0, content, focusTxtTimeMS, focusTxtDelayMS);
             }
 
             isCameraLookAtTarget = false;
@@ -1036,15 +1058,16 @@ function onPointerDown(event) {
             .onUpdate(() =>{
             })
             .onComplete( ()=>{
-                cameraPYMatrix.copy(camera.clone().matrixWorld);
-                mouseMovFac = 0.0002;
-                cameraBasePos.set(0,0,0);
-                targetCameraX = 0;
-                targetCameraY = 0;
-                focusAnimFlag = false;
+                returnObj.cssObj.element.children[0].className = "returnTxt txtMoveIn";
+
+                // cameraPYMatrix.copy(camera.clone().matrixWorld);
+                // mouseMovFac = 0.0002;
+                // cameraBasePos.set(0,0,0);
+                // targetCameraX = 0;
+                // targetCameraY = 0;
+                // focusAnimFlag = false;
+                resetFocusAnimFlag(mouseMovFacFocus);
             } ).start();
-
-
 
         } ).start();
 
@@ -1061,6 +1084,74 @@ function onPointerDown(event) {
     
 }
 
+const targetReturnTimeMS = 1000;
+const cameraReturnDelayMS = 500;
+const cameraReturnTimeMS = 2000;
+
+function onReturnClick(){
+
+    if(focusFlag && !focusAnimFlag){
+        TWEEN.removeAll();
+        focusAnimFlag = true;
+
+        const target = camera.position.clone();
+        target.addScaledVector(camera.getWorldDirection(new THREE.Vector3()), 1);
+        cameraCurrentTarget.copy(target);
+        isCameraLookAtTarget = true;
+        new TWEEN.Tween( cameraCurrentTarget )
+        .to( {x : cameraInitTarget.x, y : cameraInitTarget.y, z : cameraInitTarget.z}, targetReturnTimeMS )
+        .easing( TWEEN.Easing.Linear.None )
+        .onUpdate(() =>{
+        })
+        .onComplete( ()=>{
+
+        })
+        .start();
+
+        const mat4 = new THREE.Matrix4();
+
+        if(cellData[CELL_INTERSECTED.cellIndex * cellDataUnit + 2] === 'r'){
+            addRotateCameraTxtAnim(mat4, focusTitleObjR, focusTitleParamR, false, 
+                0, focusTitleParamR.initAngle, null, focusTxtTimeMS, 0);
+            addRotateCameraTxtAnim(mat4, focusContentObjL, focusContentParamL, false, 
+                0, focusContentParamL.initAngle, null, focusTxtTimeMS, 0)
+        }else{
+            addRotateCameraTxtAnim(mat4, focusTitleObjL, focusTitleParamL, false, 
+                0, focusTitleParamL.initAngle, null, focusTxtTimeMS, 0);
+            addRotateCameraTxtAnim(mat4, focusContentObjR, focusContentParamR, false, 
+                0, focusContentParamR.initAngle, null, focusTxtTimeMS, 0);
+        }
+
+        returnObj.cssObj.element.children[0].className = "returnTxt txtMoveOut";
+        new TWEEN.Tween( camera.position )
+        .to( {x : cameraInitPos.x, y : cameraInitPos.y, z : cameraInitPos.z}, cameraReturnTimeMS )
+        .easing( TWEEN.Easing.Quadratic.InOut )
+        .delay( cameraReturnDelayMS )
+        .onUpdate(() =>{
+        })
+        .onComplete( ()=>{
+            focusFlag = false;
+            resetFocusAnimFlag(mouseMovFacNormal);
+
+            for(let i = 0; i < objectCSSList.length; i++){
+                objectCSSList[i].element.children[0].className = "cellName txtMoveIn";
+            }
+            returnObj.cssObj.element.children[0].className = "returnTxt txtMoveIn";
+        })
+        .start();
+
+        mixFac = ssFacMixCombineMaterial.uniforms[ 'factor' ];
+        new TWEEN.Tween( mixFac )
+        .to( {value : 0.0}, cameraReturnTimeMS )
+        .easing( TWEEN.Easing.Linear.None )
+        .delay( cameraReturnDelayMS )
+        .onComplete( ()=>{
+        } ).start();
+
+    }
+
+}
+
 const mousePos = new THREE.Vector2(0,0);
 
 let mouseX = 0, mouseY = 0;
@@ -1071,7 +1162,11 @@ let cameraBasePos = new THREE.Vector3();
 let targetCameraX = 0;
 let targetCameraY = 0;
 let targetCameraZ = 0;
-let mouseMovFac = 0.001;
+
+const mouseMovFacNormal = 0.001;
+const mouseMovFacFocus = 0.0002;
+let mouseMovFac = mouseMovFacNormal;
+
 
 let cameraAccFac = 0.01;
 let cameraAccMin = 0.0001;
@@ -1104,7 +1199,7 @@ function updateCamera(){
     }
 
     if(isCameraLookAtTarget){
-        camera.lookAt( cameraTarget );
+        camera.lookAt( cameraCurrentTarget );
     }
     
 

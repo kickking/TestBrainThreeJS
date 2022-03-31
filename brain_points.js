@@ -17,7 +17,8 @@ let stats;
 let loadDone = false, loadBrainDone = false;
 
 let gui;
-const cameraPos = new THREE.Vector3(3,3,0);
+// const cameraPos = new THREE.Vector3(3,3,0);
+const cameraPos = new THREE.Vector3(0,0,5.5);
 const modelRotate = 0;
 const modelPos = new THREE.Vector3(-3, -3, 3);
 const controlTarget = new THREE.Vector3(0,-0.3,0);
@@ -42,8 +43,7 @@ function init(){
 
     cameraBrain = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.25, 100 );
     cameraBrain.position.set( cameraPos.x, cameraPos.y, cameraPos.z );
-    
-
+    cameraBrain.lookAt(new THREE.Vector3(0,0,0));
     sceneBrain = new THREE.Scene();
 
 
@@ -66,12 +66,11 @@ function init(){
 
     }
 
-    console.log(vertices)
     geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
 
     const particles = new THREE.Points( geometry, brainPointsMaterial );
 
-    sceneBrain.add( particles );
+    // sceneBrain.add( particles );
 
     // const pos = new THREE.Vector3(modelPos.x, modelPos.y, modelPos.z);
     // const angle = modelRotate * Math.PI / 180;
@@ -104,8 +103,8 @@ function init(){
     const axesHelper = new THREE.AxesHelper(1000);
     sceneBrain.add(axesHelper);
 
-    // controlsBrain = new THREE.OrbitControls( cameraBrain, container );
-    // controlsBrain.target.set( controlTarget.x, controlTarget.y, controlTarget.z );
+    controlsBrain = new THREE.OrbitControls( cameraBrain, container );
+    controlsBrain.target.set( controlTarget.x, controlTarget.y, controlTarget.z );
 
     stats = new Stats();
     container.appendChild( stats.dom );
@@ -171,11 +170,11 @@ function animate() {
 
     requestAnimationFrame( animate );
 
-    // controlsBrain.update(); // required if damping enabled
+    controlsBrain.update(); // required if damping enabled
 
     stats.update();
 
-    updateCamera();
+    // updateCamera();
 
     render();
 

@@ -10,7 +10,8 @@ let camera;
 let renderer;
 let rendererCSS;
 
-let loadDone = false;
+let loadBrainDone = false;
+let loadCellDone = false;
 
 let membraneNormalMap, membraneNormalMap1, membraneDispMap, membraneDispMap1;
 let nucleusBaseColor, nucleusNormalMap, nucleusNormalMap1, nucleusDispMap, nucleusDispMap1;
@@ -27,28 +28,30 @@ const axonPointsList = [];
 const objectCSSList = [];
 const axonGeoList = [];
 const cellList = [];
+const cellDepthList = [];
 const cellGeoList = [];
 
 const axon = new THREE.Axon({
-    AxonCount : 6,
+    AxonCount : 5,
     AxonRootRotAxisAngleMax: 10,
     AxonRadiusMax: 0.12,
     AxonRadiusMin: 0.001,
     AxonSplitRatio: 0.015,
-    AxonLayerMaxCount: 60,
+    AxonLayerMaxCount: 80,
     AxonLayerMaxLength: 0.04,
-    AxonLayerMinLength: 0.02,
+    AxonLayerMinLength: 0.03,
     AxonLayerTotalMaxLength: 3,
     AxonRotAxisMaxAngle:  5,
-    AxonSegments: (2 * 8),
+    AxonSegments: (2 * 4),
     AxonRadiusAttenuationSpeed: 4,
     AxonSizeAttenuationSpeed: 2,
-    AxonColorIntensity: 0.2,
+    AxonColorIntensity: 2.0,
 });
 
-let ssShowMaterial, ssBlurMaterial, ssBlurMFMaterial, ssDarkenMFMaterial;
+let ssShowMaterial, ssDarkenMFMaterial;
 let ssFacMixCombineMaterial;
-let pointMaterial, spherePointsMaterial, axonPointsMaterial, axonGeoMaterial;
+let spherePointsMaterial, axonPointsMaterial, axonGeoMaterial;
+let brainPointsMaterial;
 let axonLightMaterial, axonLightExtractMaterial;
 let addCombineMaterial, minCombineMaterial;
 
@@ -67,6 +70,7 @@ let renderTargetAddCombine;
 let renderTargetMinCombine;
 let renderTargetShow;
 
+let brainParticleMesh;
 let particleMesh;
 let screenMesh;
 
@@ -77,12 +81,13 @@ let stats;
 let gui;
 
 const environments = {
-    // 'loft_hall': { filename: 'photo_studio_loft_hall_1k.hdr' },        
-    // 'artist_workshop': { filename: 'artist_workshop_1k.hdr' },
-    // 'christmas': { filename: 'christmas_photo_studio_01_1k.hdr' },
-    // 'cayley_interior': { filename: 'cayley_interior_1k.hdr' },
+    
     'dikhololo_night': { filename: 'dikhololo_night_1k.hdr' },
     'quarry': { filename: 'quarry_04_1k.hdr' },
+    'loft_hall': { filename: 'photo_studio_loft_hall_1k.hdr' },        
+    'artist_workshop': { filename: 'artist_workshop_1k.hdr' },
+    'christmas': { filename: 'christmas_photo_studio_01_1k.hdr' },
+    'cayley_interior': { filename: 'cayley_interior_1k.hdr' },
     
 };
 
@@ -92,6 +97,13 @@ const cameraCurrentTarget = new THREE.Vector3(0,0,0);
 const cameraObject = new THREE.Object3D();
 let cameraObjectOrg;
 
+
+const cellMeshes = {
+    membrane: null,
+    nucleus: null,
+    membraneHigh: null,
+    nucleusHigh: null,
+};
 const cellRadius = 1.33;
 const cellScale = 0.2;
 const cellParticleCount = 2000;
@@ -139,185 +151,15 @@ function init(){
 
     initMaterial();
 
-
-    const particleGeometry = new THREE.BufferGeometry();
-    const particleVertices = [];
-    const particleRadii = [];
-    const particleSphereCoords = [];
-    const particleUVs = [];
-    const particleColors = [];
-    const particleColor = new THREE.Color();
-    const particleColorScalar = 0.1;
-
-
-    for ( let i = 0; i < 5000; i ++ ) {
-        const r = 0.0 + 
-        Math.random() * (5.0 - 0.0);
-        const theta = Math.random() * Math.PI; //zenith
-        const phi = Math.random() * Math.PI * 2; //Azimuth
-        const x = r * Math.sin(phi) * Math.cos(theta);
-        const y = r * Math.sin(phi) * Math.sin(theta);
-        const z = r * Math.cos(phi);
-
-        particleVertices.push( x, y, z );
-        particleRadii.push(r);
-        particleSphereCoords.push(theta, phi);
-        particleUVs.push(Math.random(), Math.random());
-
-        particleColor.setRGB(Math.random(), Math.random(), Math.random()).multiplyScalar(particleColorScalar);
-        particleColors.push(particleColor.r, particleColor.g, particleColor.b);
-                
-    }
-    particleGeometry.setAttribute( 'position', new THREE.Float32BufferAttribute( particleVertices, 3 ) );
-    particleGeometry.setAttribute( 'radius', new THREE.Float32BufferAttribute( particleRadii, 1 ) );
-    particleGeometry.setAttribute( 'sphereCoord', new THREE.Float32BufferAttribute( particleSphereCoords, 2 ) );
-    particleGeometry.setAttribute( 'uv', new THREE.Float32BufferAttribute( particleUVs, 2 ) );
-    particleGeometry.setAttribute( 'color', new THREE.Float32BufferAttribute( particleColors, 3 ) );
-    particleMesh = new THREE.Points( particleGeometry, spherePointsMaterial );
-    sceneCells.add(particleMesh);
-
-    const cellMeshes = {
-        membrane: null,
-        nucleus: null,
-        membraneHigh: null,
-        nucleusHigh: null,
-    };
+    // initSphereParticl();
 
     initCSSTitle();
 
     initCameraObject();
-    initCSSObject(focusTitleObjR, focusTitleParamR, 'cellFocusTitle', 'focusName');
-    initCSSObject(focusTitleObjL, focusTitleParamL, 'cellFocusTitle', 'focusName');
+    initCSSObjects();
 
-    initCSSObject(focusContentObjR, focusContentParamR, 'cellFocusContent', 'focusTxt pre');
-    initCSSObject(focusContentObjL, focusContentParamL, 'cellFocusContent', 'focusTxt pre');
-
-    initCSSObject(returnObj, returnParam, 'cellReturn', 'returnTxt txtMoveIn', onReturnClick);
-
-    returnObj.textEle.textContent = '返回';
-    returnObj.cssObj.visible = true;
-
-    for(let i = 0; i < axon.AxonCount; i++){
-        axonHeadIndexSetInitArray.push(i);
-    }
-
-    new THREE.GLTFLoader()
-    .setPath( 'models/stem_cell/' )
-    .setDRACOLoader( new THREE.DRACOLoader().setDecoderPath( 'models/stem_cell/draco/' ) )
-    .load( 'stem-cell6.glb', function ( gltf ) {
-        gltf.scene.traverse( function ( object ) {
-            if(object.isMesh){
-                if(object.name === 'membrane-disp'){
-                    cellMeshes.membrane = object;
-                }else if(object.name === 'nucleus-disp'){
-                    cellMeshes.nucleus = object;
-                }else if(object.name === 'membrane-high-disp'){
-                    cellMeshes.membraneHigh = object;
-                }else if(object.name === 'nucleus-high-disp'){
-                    cellMeshes.nucleusHigh = object;
-                }
-            }
-            
-		} );
-
-
-        for(let i = 0; i < cellData.length; i += cellDataUnit){
-            const cell = new THREE.Object3D();
-            const cellDepth = new THREE.Object3D();
-            const cellGeo = new THREE.Object3D();
-            cellGeo.name = 'cellGeo';
-            
-            const membrane = cellMeshes.membrane.clone();
-            membrane.material = membraneMaterial.clone();
-            membrane.scale.setScalar(cellScale);
-            membrane.cellIndex = i / cellDataUnit;
-
-            const spherical = new THREE.Spherical();
-            spherical.setFromCartesianCoords(cellData[i][0], cellData[i][1], cellData[i][2]);
-            membrane.focusColorFac = new THREE.Vector3(1.0, 1.0, 1.0);
-            const randsM = [Math.random(), Math.random(), Math.random(), Math.random()];
-            membrane.rands = randsM;
-            membraneList.push(membrane);
-
-            const nucleus = cellMeshes.nucleus.clone();
-            nucleus.material = nucleusMaterial.clone();
-            nucleus.scale.setScalar(cellScale);
-            axon.makeAxonIndexOnMesh(nucleus);
-            axon.makeAxonListHeadsOnMesh(nucleus);
-            axon.addAxonPointsMaterialFromMesh(cell, nucleus, axonPointsMaterial.clone(), axonPointsList);
-            const randsN = [Math.random(), Math.random(), Math.random(), Math.random()];
-            nucleus.rands = randsN;
-            nucleusList.push(nucleus);
-
-
-            const membraneHigh = cellMeshes.membraneHigh.clone();
-            membraneHigh.material = membraneMaterial.clone();
-            membraneHigh.scale.setScalar(cellScale);
-            membraneHighList.push(membraneHigh);
-            cellGeo.add(membraneHigh);
-
-            const nucleusHigh = cellMeshes.nucleusHigh.clone();
-            nucleusHigh.material = nucleusMaterial.clone();
-            nucleusHigh.scale.setScalar(cellScale);
-            nucleusHighList.push(nucleusHigh);
-            cellGeo.add(nucleusHigh);
-            axon.makeAxonIndexOnMesh(nucleusHigh);
-            axon.makeAxonListHeadsOnMesh(nucleusHigh);
-            axon.makeAxonGeometryOnMesh(nucleusHigh);
-            // axon.addAxonLineFromMesh(cellGeo, nucleusHigh);
-            axon.addAxonGeometryMaterialFromMesh(cellGeo, nucleusHigh, axonGeoMaterial.clone(), axonGeoList);
-
-            cellGeo.position.set(cellData[i][0], cellData[i][1], cellData[i][2]);
-            cellsGeoGroup.add(cellGeo);
-            cellGeoList.push(cellGeo);
-
-            cell.add(membrane);
-            cell.add(nucleus);
-            cell.position.set(cellData[i][0], cellData[i][1], cellData[i][2]);
-            cell.orgPos = new THREE.Vector3(cellData[i][0], cellData[i][1], cellData[i][2]);
-
-            initCellCameraFocus(cell, cellData[i + 2]);
-
-            cellList.push(cell);
-            cellsGroup.add(cell);
-
-            const nucleusDepth = cellMeshes.nucleus.clone();
-            nucleusDepth.material = nucleusDepthMaterial.clone();
-            nucleusDepth.material.uniforms[ 'displacementMap' ].value = nucleusDispMap;
-            nucleusDepth.material.uniforms[ 'displacementMap1' ].value = nucleusDispMap1;
-            nucleusDepth.scale.setScalar(cellScale);
-            nucleusDepth.rands = randsN;
-            nucleusDepthList.push(nucleusDepth);
-            cellDepth.add(nucleusDepth);
-            cellDepth.position.set(cellData[i][0], cellData[i][1], cellData[i][2]);
-            cellsDepthGroup.add(cellDepth);
-
-
-            const axonHeadIndexSet = new Set(axonHeadIndexSetInitArray);
-            axonHeadIndexSets.push(axonHeadIndexSet);
-        }
-
-        for(let i = 0; i < cellGeoList.length; i++){
-            const axonLights = new THREE.Object3D();
-            // axonLights.name = 'axonLights';
-
-            for(let j = 0; j < axonLightCount; j++){
-                const pointLight = new THREE.Object3D();
-                initLightMaterialProp(pointLight, i, true);
-                axonLights.add(pointLight);
-                axonLightList.push(pointLight);
-            }
-            
-            axonLights.position.copy(cellGeoList[i].position);
-            cellsGeoGroup.add(axonLights);
-        }
-
-        sceneCells.add(cellsGroup);
-        sceneNucleusDepth.add(cellsDepthGroup);
-        sceneCellsGeo.add(cellsGeoGroup);
-        loadDone = true;
-
-    } );
+    loadBrainModelAndInit();
+    loadCellModelAndInit();
 
     gaussianPass = new THREE.SSGaussianBlurPass({
         texture: renderTargetMinCombine.texture,
@@ -384,6 +226,7 @@ function initCameraObject(){
     cameraObjectOrg = cameraObject.clone();
 }
 
+
 class CellTextObj{
     constructor() {
         this.textELe = null;
@@ -440,13 +283,25 @@ const returnParam = new CellTextParam({
     currentAngle: 0,
 });
 
+function initCSSObjects(){
+    initCSSObject(focusTitleObjR, focusTitleParamR, 'cellFocusTitle', 'focusName');
+    initCSSObject(focusTitleObjL, focusTitleParamL, 'cellFocusTitle', 'focusName');
+
+    initCSSObject(focusContentObjR, focusContentParamR, 'cellFocusContent', 'focusTxt pre');
+    initCSSObject(focusContentObjL, focusContentParamL, 'cellFocusContent', 'focusTxt pre');
+
+    initCSSObject(returnObj, returnParam, 'cellReturn', 'returnTxt txtMoveIn', onReturnClick);
+
+    returnObj.textEle.textContent = '返回';
+    returnObj.cssObj.visible = true;
+}
 
 function initCSSObject(obj, focusParam, outerClass, innerClass, clickFunc) {
     const element = document.createElement( 'div' );
     element.className = outerClass;
     element.style.backgroundColor = 'rgba(0,0,0,0)';
     if(clickFunc){
-        element.addEventListener( 'click', clickFunc);
+        element.addEventListener( 'click', clickFunc );
     }
 
     obj.textEle = document.createElement( 'div' );
@@ -470,10 +325,236 @@ function initCSSObject(obj, focusParam, outerClass, innerClass, clickFunc) {
 
 }
 
+// function initSphereParticl(){
+//     const particleGeometry = new THREE.BufferGeometry();
+//     const particleVertices = [];
+//     const particleRadii = [];
+//     const particleSphereCoords = [];
+//     const particleUVs = [];
+//     const particleColors = [];
+//     const particleColor = new THREE.Color();
+//     const particleColorScalar = 0.3;
+
+//     for ( let i = 0; i < 5000; i ++ ) {
+//         const r = 0.0 + 
+//         Math.random() * (5.0 - 0.0);
+//         const theta = Math.random() * Math.PI; //zenith
+//         const phi = Math.random() * Math.PI * 2; //Azimuth
+//         const x = r * Math.sin(phi) * Math.cos(theta);
+//         const y = r * Math.sin(phi) * Math.sin(theta);
+//         const z = r * Math.cos(phi);
+
+//         particleVertices.push( x, y, z );
+//         particleRadii.push(r);
+//         particleSphereCoords.push(theta, phi);
+//         particleUVs.push(Math.random(), Math.random());
+
+//         particleColor.setRGB(Math.random(), Math.random(), Math.random()).multiplyScalar(particleColorScalar);
+//         particleColors.push(particleColor.r, particleColor.g, particleColor.b);
+                
+//     }
+
+//     particleGeometry.setAttribute( 'position', new THREE.Float32BufferAttribute( particleVertices, 3 ) );
+//     particleGeometry.setAttribute( 'radius', new THREE.Float32BufferAttribute( particleRadii, 1 ) );
+//     particleGeometry.setAttribute( 'sphereCoord', new THREE.Float32BufferAttribute( particleSphereCoords, 2 ) );
+//     particleGeometry.setAttribute( 'uv', new THREE.Float32BufferAttribute( particleUVs, 2 ) );
+//     particleGeometry.setAttribute( 'color', new THREE.Float32BufferAttribute( particleColors, 3 ) );
+//     particleMesh = new THREE.Points( particleGeometry, spherePointsMaterial );
+//     sceneCells.add(particleMesh);
+// }
+
+function initBrainParticleMesh(){
+    const posArray = brainParticleMesh.geometry.attributes.position.array;
+    const particleVertices = [];
+    const particleRadii = [];
+    const particleSphereCoords = [];
+    const particleColors = [];
+    const particleColor = new THREE.Color();
+    const particleColorScalar = 0.2;
+
+    for(let i = 0; i < posArray.length; i += 3){
+        const radius = 0.0 + 
+        Math.random() * (5.0 - 0.0);
+        const theta = Math.random() * Math.PI; //zenith
+        const phi = Math.random() * Math.PI * 2; //Azimuth
+        const x = radius * Math.sin(phi) * Math.cos(theta);
+        const y = radius * Math.sin(phi) * Math.sin(theta);
+        const z = radius * Math.cos(phi);
+
+        particleVertices.push( x, y, z );
+        particleRadii.push(radius);
+        particleSphereCoords.push(theta, phi);
+
+        const r = 0.25 + 0.25 * Math.random();
+        const g = 0.18 + 0.18 * Math.random();
+        const b = 0.18 + 0.18 * Math.random();
+
+        particleColor.setRGB(r, g, b).multiplyScalar(particleColorScalar);
+        particleColors.push(particleColor.r, particleColor.g, particleColor.b);
+    }
+
+    brainParticleMesh.geometry.setAttribute( 'color', new THREE.Float32BufferAttribute( particleColors, 3 ) );
+    brainParticleMesh.geometry.setAttribute( 'spherePosition', new THREE.Float32BufferAttribute( particleVertices, 3 ) );
+    brainParticleMesh.geometry.setAttribute( 'radius', new THREE.Float32BufferAttribute( particleRadii, 1 ) );
+    brainParticleMesh.geometry.setAttribute( 'sphereCoord', new THREE.Float32BufferAttribute( particleSphereCoords, 2 ) );
+
+}
+
+function loadBrainModelAndInit(){
+    new THREE.GLTFLoader()
+    .setPath( 'models/brain/' )
+    .load( 'Brain-t3.gltf', function ( gltf ) {
+        gltf.scene.traverse( function ( object ) {
+            if(object.isMesh){
+                if(object.name === 'brain-low-001'){
+                    brainParticleMesh = new THREE.Points( object.geometry, brainPointsMaterial );
+                    initBrainParticleMesh();
+                    initBrainFacAnime();
+                }
+            }
+            
+		} );
+
+        sceneCells.add(brainParticleMesh);
+        loadBrainDone = true;
+
+    } );
+}
+
+function loadCellModelAndInit(){
+    
+    initAxonHeadIndexSetInitArray();
+    new THREE.GLTFLoader()
+    .setPath( 'models/stem_cell/' )
+    .setDRACOLoader( new THREE.DRACOLoader().setDecoderPath( 'models/stem_cell/draco/' ) )
+    .load( 'stem-cell6.glb', function ( gltf ) {
+        gltf.scene.traverse( function ( object ) {
+            if(object.isMesh){
+                if(object.name === 'membrane-disp'){
+                    cellMeshes.membrane = object;
+                }else if(object.name === 'nucleus-disp'){
+                    cellMeshes.nucleus = object;
+                }else if(object.name === 'membrane-high-disp'){
+                    cellMeshes.membraneHigh = object;
+                }else if(object.name === 'nucleus-high-disp'){
+                    cellMeshes.nucleusHigh = object;
+                }
+            }
+            
+		} );
+
+        initCellMeshes();
+        initAxonLights();
+        initCellAnime();
+
+        sceneCells.add(cellsGroup);
+        sceneNucleusDepth.add(cellsDepthGroup);
+        sceneCellsGeo.add(cellsGeoGroup);
+        loadCellDone = true;
+
+    } );
+}
+
+function initAxonHeadIndexSetInitArray(){
+    for(let i = 0; i < axon.AxonCount; i++){
+        axonHeadIndexSetInitArray.push(i);
+    }
+}
+
+const cellInitPos = new THREE.Vector3(0,0,0);
+const cellInitScalar = 0;
+
+function initCellMeshes(){
+    for(let i = 0; i < cellData.length; i += cellDataUnit){
+        const cell = new THREE.Object3D();
+        const cellDepth = new THREE.Object3D();
+        const cellGeo = new THREE.Object3D();
+        cellGeo.name = 'cellGeo';
+        
+        const membrane = cellMeshes.membrane.clone();
+        membrane.material = membraneMaterial.clone();
+        membrane.scale.setScalar(cellScale);
+        membrane.cellIndex = i / cellDataUnit;
+
+        // const spherical = new THREE.Spherical();
+        // spherical.setFromCartesianCoords(cellData[i][0], cellData[i][1], cellData[i][2]);
+        membrane.focusColorFac = new THREE.Vector3(1.0, 1.0, 1.0);
+        const randsM = [Math.random(), Math.random(), Math.random(), Math.random()];
+        membrane.rands = randsM;
+        membraneList.push(membrane);
+
+        const nucleus = cellMeshes.nucleus.clone();
+        nucleus.material = nucleusMaterial.clone();
+        nucleus.scale.setScalar(cellScale);
+        axon.makeAxonIndexOnMesh(nucleus);
+        axon.makeAxonListHeadsOnMesh(nucleus);
+        // axon.addAxonLineFromMesh(cell, nucleus);
+        axon.addAxonPointsMaterialFromMesh(cell, nucleus, axonPointsMaterial.clone(), axonPointsList);
+        const randsN = [Math.random(), Math.random(), Math.random(), Math.random()];
+        nucleus.rands = randsN;
+        nucleusList.push(nucleus);
+
+
+        const membraneHigh = cellMeshes.membraneHigh.clone();
+        membraneHigh.material = membraneMaterial.clone();
+        membraneHigh.scale.setScalar(cellScale);
+        membraneHighList.push(membraneHigh);
+        cellGeo.add(membraneHigh);
+
+        const nucleusHigh = cellMeshes.nucleusHigh.clone();
+        nucleusHigh.material = nucleusMaterial.clone();
+        nucleusHigh.scale.setScalar(cellScale);
+        nucleusHighList.push(nucleusHigh);
+        cellGeo.add(nucleusHigh);
+        axon.makeAxonIndexOnMesh(nucleusHigh);
+        axon.makeAxonListHeadsOnMesh(nucleusHigh);
+        axon.makeAxonGeometryOnMesh(nucleusHigh);
+        // axon.addAxonLineFromMesh(cellGeo, nucleusHigh);
+        axon.addAxonGeometryMaterialFromMesh(cellGeo, nucleusHigh, axonGeoMaterial.clone(), axonGeoList);
+
+        cellGeo.position.set(cellData[i][0], cellData[i][1], cellData[i][2]);
+        cellsGeoGroup.add(cellGeo);
+        cellGeoList.push(cellGeo);
+
+        cell.add(membrane);
+        cell.add(nucleus);
+        // cell.position.set(cellData[i][0], cellData[i][1], cellData[i][2]);
+        cell.position.copy(cellInitPos);
+        cell.currentPos = new THREE.Vector3(0, 0, 0); 
+        cell.targetPos = new THREE.Vector3(cellData[i][0], cellData[i][1], cellData[i][2]);
+        cell.scale.setScalar(cellInitScalar);
+        cell.currentScalar = cellInitScalar;
+
+
+        initCellCameraFocus(cell, cellData[i + 2]);
+
+        cellList.push(cell);
+        cellsGroup.add(cell);
+
+        const nucleusDepth = cellMeshes.nucleus.clone();
+        nucleusDepth.material = nucleusDepthMaterial.clone();
+        nucleusDepth.material.uniforms[ 'displacementMap' ].value = nucleusDispMap;
+        nucleusDepth.material.uniforms[ 'displacementMap1' ].value = nucleusDispMap1;
+        nucleusDepth.scale.setScalar(cellScale);
+        nucleusDepth.rands = randsN;
+        nucleusDepthList.push(nucleusDepth);
+        cellDepth.add(nucleusDepth);
+        // cellDepth.position.set(cellData[i][0], cellData[i][1], cellData[i][2]);
+        cellDepth.position.copy(cellInitPos);
+        cellDepth.scale.setScalar(cellInitScalar);
+
+        cellDepthList.push(cellDepth);
+        cellsDepthGroup.add(cellDepth);
+
+
+        const axonHeadIndexSet = new Set(axonHeadIndexSetInitArray);
+        axonHeadIndexSets.push(axonHeadIndexSet);
+    }
+}
 
 function initCellCameraFocus(cell, targetLoc){
-    const dir = new THREE.Vector3().subVectors(cell.orgPos, new THREE.Vector3(0,0,0)).normalize();
-    cell.CameraFocusPos = new THREE.Vector3().copy(cell.orgPos);
+    const dir = new THREE.Vector3().subVectors(cell.targetPos, new THREE.Vector3(0,0,0)).normalize();
+    cell.CameraFocusPos = new THREE.Vector3().copy(cell.targetPos);
     cell.CameraFocusPos.addScaledVector(dir, cellCameraFocusDist);
     const crossDir = (new THREE.Vector3()).crossVectors(dir, camera.up).normalize();
     cell.CameraFocusPosCross = new THREE.Vector3().copy(cell.CameraFocusPos);
@@ -503,6 +584,22 @@ function selectFromAxonHeadIndexSet(setIndex){
 function addToAxonHeadIndexSet(setIndex, value){
     const set = axonHeadIndexSets[setIndex];
     set.add(value);
+}
+
+function initAxonLights(){
+    for(let i = 0; i < cellGeoList.length; i++){
+        const axonLights = new THREE.Object3D();
+
+        for(let j = 0; j < axonLightCount; j++){
+            const pointLight = new THREE.Object3D();
+            initLightMaterialProp(pointLight, i, true);
+            axonLights.add(pointLight);
+            axonLightList.push(pointLight);
+        }
+        
+        axonLights.position.copy(cellGeoList[i].position);
+        cellsGeoGroup.add(axonLights);
+    }
 }
 
 function initLightMaterialProp(pointLight, cIndex, flag){
@@ -550,6 +647,98 @@ function initLightMaterialProp(pointLight, cIndex, flag){
     pointLight.pointLightMesh.material.intensity = axonLightMaterialIntensityFull * pointLight.fadeInOutFac;
     pointLight.light.intensity = axonLightIntensityFull * pointLight.fadeInOutFac;
     
+}
+
+let startAnimeFlag = true;
+
+const brainAnimeTimeMS = 4000;
+const brainAnimeDelayTimeMS = 3000;
+
+const sphereAnimeTimeMS = 30000;
+
+let brainStartAnime;
+
+function initBrainFacAnime(){
+    brainStartAnime = new TWEEN.Tween( brainPointsMaterial )
+    .to( {positionFac : 1.0}, brainAnimeTimeMS )
+    // .easing( TWEEN.Easing.Linear.None )
+    .easing( TWEEN.Easing.Quadratic.Out )
+    .delay( brainAnimeDelayTimeMS )
+    .onComplete( ()=>{
+        brainParticleMesh.material = spherePointsMaterial;
+
+        new TWEEN.Tween( spherePointsMaterial )
+        .to( {fac : 1.0}, sphereAnimeTimeMS )
+        // .easing( TWEEN.Easing.Linear.None )
+        .easing( TWEEN.Easing.Quadratic.In )
+        .onComplete( ()=>{
+        } ).start();
+
+    } );
+
+}
+
+const cellAnimIntervalTimeMS = 100;
+const cellAnimeTimeMS = 1000;
+const cellAnimeDelayTimeMS = brainAnimeDelayTimeMS + 500;
+const axonAnimeTimeMS = 1000;
+
+const cellScalar = 1;
+const cellStartAnimeList = [];
+
+function playCellStartAnime(){
+    for(let i = 0; i < cellStartAnimeList.length; i++){
+        cellStartAnimeList[i].start();
+    }
+}
+
+function initCellAnime(){
+    for(let i = 0; i < cellList.length; i++){
+        const cell = cellList[i];
+        const cellDepth = cellDepthList[i];
+        const axon = axonPointsList[i];
+
+        const dataIndex = i * cellDataUnit;
+        const posAnime = new TWEEN.Tween( cell.currentPos )
+        .to( {x : cellData[dataIndex][0], y : cellData[dataIndex][1], z : cellData[dataIndex][2],}, cellAnimeTimeMS )
+        .easing( TWEEN.Easing.Quadratic.Out )
+        // .easing( TWEEN.Easing.Linear.None )
+        .delay( cellAnimeDelayTimeMS + cellAnimIntervalTimeMS * i)
+        .onUpdate( ()=>{
+            cell.position.copy(cell.currentPos);
+            cellDepth.position.copy(cell.currentPos);
+        })
+        .onComplete( ()=>{
+        } );
+
+        cellStartAnimeList.push(posAnime);
+
+        const scaleAnime = new TWEEN.Tween( cell )
+        .to( { currentScalar : cellScalar}, cellAnimeTimeMS)
+        .easing( TWEEN.Easing.Quadratic.In )
+        // .easing( TWEEN.Easing.Linear.None )
+        .delay( cellAnimeDelayTimeMS + cellAnimIntervalTimeMS * i)
+        .onUpdate( ()=>{
+            cell.scale.setScalar(cell.currentScalar);
+            cellDepth.scale.setScalar(cell.currentScalar);
+        })
+        .onComplete( ()=>{
+            new TWEEN.Tween( axon.material )
+            .to( { layerShow : axon.material.layerMax}, axonAnimeTimeMS)
+            // .easing( TWEEN.Easing.Quadratic.In )
+            .easing( TWEEN.Easing.Linear.None )
+            .delay( cellAnimIntervalTimeMS * (cellList.length - i - 1))
+            .onUpdate( ()=>{
+                axon.material.needsUpdate = true;
+            })
+            .onComplete( ()=>{
+                startAnimeFlag = false;
+            } ).start();
+
+        } );
+
+        cellStartAnimeList.push(scaleAnime);
+    }
 }
 
 const rtRatio = 2;
@@ -661,7 +850,7 @@ function loadTexture(){
     pointTexture = loader.load( 'textures/brain/test7.png' );
     pointTexture.flipY = false;
     pointTexture.encoding = THREE.sRGBEncoding;    
-    // pointTexture.premultiplyAlpha = true;
+    pointTexture.premultiplyAlpha = true;
 	pointTexture.needsUpdate = true;
 
     noiseTexture = loader.load( 'textures/stem_cell/point-noise-gaussian.png' );
@@ -763,29 +952,6 @@ function initMaterial(){
         depthWrite: false,
     });
 
-    ssBlurMaterial = new THREE.ShaderMaterial({
-        uniforms: THREE.UniformsUtils.clone( THREE.SSSimpleBlurShader.uniforms ),
-        vertexShader: THREE.SSSimpleBlurShader.vertexShader,
-        fragmentShader: THREE.SSSimpleBlurShader.fragmentShader,
-        depthWrite: false,
-    });
-    ssBlurMaterial.defines[ 'KERNEL_SIZE' ] = 9;
-    ssBlurMaterial.uniforms[ 'tScreen' ].value = renderTargetCell.texture;
-
-    ssBlurMFMaterial = new THREE.ShaderMaterial({
-        uniforms: THREE.UniformsUtils.clone( THREE.SSSimpleBlurMFShader.uniforms ),
-        vertexShader: THREE.SSSimpleBlurMFShader.vertexShader,
-        fragmentShader: THREE.SSSimpleBlurMFShader.fragmentShader,
-        depthWrite: false,
-    });
-
-    ssBlurMFMaterial.defines[ 'KERNEL_SIZE' ] = 9;
-    ssBlurMFMaterial.uniforms[ 'tScreen' ].value = renderTargetCell.texture;
-    ssBlurMFMaterial.uniforms[ 'threshold' ].value = 70;
-    ssBlurMFMaterial.uniforms[ 'falloff' ].value = 70;
-    ssBlurMFMaterial.uniforms[ 'resolution' ].value = new THREE.Vector2(window.innerWidth, window.innerHeight);
-    ssBlurMFMaterial.uniforms[ 'devicePixelRatio' ].value = window.devicePixelRatio;
-
     ssDarkenMFMaterial = new THREE.ShaderMaterial({
         uniforms: THREE.UniformsUtils.clone( THREE.SSDarkenMFShader.uniforms ),
         vertexShader: THREE.SSDarkenMFShader.vertexShader,
@@ -797,8 +963,6 @@ function initMaterial(){
     ssDarkenMFMaterial.uniforms[ 'darkenFac' ].value = 1.0;
     ssDarkenMFMaterial.uniforms[ 'focusColorFac' ].value = new THREE.Vector3(1.0, 0.5, 1.0);
     ssDarkenMFMaterial.uniforms[ 'focusPos' ].value = new THREE.Vector2(0.0, 0.0);
-    // ssDarkenMFMaterial.uniforms[ 'threshold' ].value = 80 * rtRatio;
-    // ssDarkenMFMaterial.uniforms[ 'falloff' ].value = 80 * rtRatio;
     ssDarkenMFMaterial.uniforms[ 'threshold' ].value = window.innerWidth / 20 * rtRatio;
     ssDarkenMFMaterial.uniforms[ 'falloff' ].value = window.innerWidth / 20 * rtRatio;
     
@@ -812,21 +976,8 @@ function initMaterial(){
         depthWrite: false,
     });
     ssFacMixCombineMaterial.uniforms[ 'tScreen0' ].value = renderTargetCellMF.texture;
-    // ssFacMixCombineMaterial.uniforms[ 'tScreen1' ].value = renderTargetCellGeo.texture;
     ssFacMixCombineMaterial.uniforms[ 'tScreen1' ].value = renderTargetShow.texture;
     ssFacMixCombineMaterial.uniforms[ 'factor' ].value = 0;
-
-    pointMaterial = new THREE.PointsMaterial( {   
-        size: 0.15, 
-        // color: 0xff0000, 
-        map: pointTexture,
-        blending: THREE.CustomBlending, 
-        blendSrc: THREE.SrcAlphaFactor,
-        blendDst: THREE.DstAlphaFactor,
-        blendEquation: THREE.AddEquation,
-        depthTest: false, 
-        transparent: true
-    });
 
     spherePointsMaterial = new THREE.SpherePointsMaterial({
         size: 0.1, 
@@ -841,9 +992,26 @@ function initMaterial(){
         noiseMap: noiseTexture,
     });
     spherePointsMaterial.time = 0;
+    spherePointsMaterial.fac = 0;
+
+    brainPointsMaterial = new THREE.BrainPointsMaterial({
+        size: 0.1, 
+        map: pointTexture,
+        blending: THREE.CustomBlending, 
+        blendSrc: THREE.SrcAlphaFactor,
+        blendDst: THREE.DstAlphaFactor,
+        blendEquation: THREE.AddEquation,
+        depthTest: false, 
+        transparent: true,
+        vertexColors: true,
+
+        noiseMap: noiseTexture,        
+    });
+    brainPointsMaterial.time = 0;
+    brainPointsMaterial.positionFac = 0;
 
     axonPointsMaterial = new THREE.AxonPointsMaterial({
-        size: 0.2, 
+        size: 0.2, //relate to resolution
         map: pointTexture,
         blending: THREE.CustomBlending, 
         blendSrc: THREE.SrcAlphaFactor,
@@ -861,12 +1029,11 @@ function initMaterial(){
         depthMap: renderTargetNucleusDepth.texture,
         layerMax: axon.AxonLayerMaxCount,
         viewPort: new THREE.Vector2(rtWidth_cell, rtHeight_cell),
-        // viewPort: new THREE.Vector2(window.innerWidth, window.innerHeight).multiplyScalar(window.devicePixelRatio),
 
     });
     axonPointsMaterial.rootDisplacementFac = 0;
     axonPointsMaterial.time = 0;
-
+    axonPointsMaterial.layerShow = 0;
 
     axonGeoMaterial = new THREE.AxonGeometryMaterial({
         color: 0xd4e7e0,
@@ -1059,13 +1226,6 @@ function onPointerDown(event) {
             })
             .onComplete( ()=>{
                 returnObj.cssObj.element.children[0].className = "returnTxt txtMoveIn";
-
-                // cameraPYMatrix.copy(camera.clone().matrixWorld);
-                // mouseMovFac = 0.0002;
-                // cameraBasePos.set(0,0,0);
-                // targetCameraX = 0;
-                // targetCameraY = 0;
-                // focusAnimFlag = false;
                 resetFocusAnimFlag(mouseMovFacFocus);
             } ).start();
 
@@ -1090,7 +1250,7 @@ const cameraReturnTimeMS = 2000;
 
 function onReturnClick(){
 
-    if(focusFlag && !focusAnimFlag){
+    if(focusFlag && !focusAnimFlag && !startAnimeFlag){
         TWEEN.removeAll();
         focusAnimFlag = true;
 
@@ -1194,7 +1354,7 @@ function onPointerMove( event ) {
 let isCameraLookAtTarget = true;
 
 function updateCamera(){
-    if(!focusAnimFlag){
+    if(!focusAnimFlag && !startAnimeFlag){
         updateCameraPitchAndYaw();
     }
 
@@ -1301,7 +1461,9 @@ function animate(){
 
     stats.update();
 
-    if(!loadDone) return;
+    if(!loadCellDone || !loadBrainDone) return;
+
+    playStartAnime();
 
     updateTime();
     updateFac(elapsedTime);
@@ -1322,6 +1484,13 @@ function animate(){
     render();
     
 
+}
+
+function playStartAnime(){
+    if(!brainStartAnime._isPlaying){
+        brainStartAnime.start();
+        playCellStartAnime();
+    }
 }
 
 const framePrintIntervalPS = 0.1;
@@ -1358,8 +1527,9 @@ function updateFac(elapsedTime){
     // updateAxonListFac(elapsedTime, membraneList, axonPointsList);
     updateAxonListFac(elapsedTime, nucleusList);
 
-    particleMesh.material.time = elapsedTime;
-    
+    brainParticleMesh.material.time = elapsedTime;
+    // particleMesh.material.time = elapsedTime;
+
 }
 
 function getRandBetween(rand, Min, Max){
@@ -1418,6 +1588,10 @@ function updateAxonListFac(elapsedTime, list){
     }
 }
 
+function framePrint(){
+
+}
+
 function updateCssLookAtCamera() {
     if(!focusFlag){
         for(let i = 0; i < objectCSSList.length; i++){
@@ -1431,7 +1605,7 @@ const pointer = new THREE.Vector2(1.0, 1.0);
 let CELL_INTERSECTED = null;
 
 function findPointCell(){
-    if(focusFlag) return;
+    if(focusFlag || startAnimeFlag) return;
     
     raycaster.setFromCamera( pointer, camera );
     let intersects = raycaster.intersectObjects( membraneList );
@@ -1449,7 +1623,7 @@ function findPointCell(){
 let darkenFac = 1.0;
 const darkenFacMin = 0.05;
 const darkenFacMax = 1.0;
-const darkenFacSpeedPS = 1.0;
+const darkenFacSpeedPS = 2.0;
 
 let focusPos = new THREE.Vector2(0.0, 0.0);
 let hasFocus = false;
@@ -1461,9 +1635,7 @@ let fadeTween;
 let colorTween;
 
 function updateFocus(){
-    if(!deltaTime) return;
-
-    // if(focusFlag) return;
+    if(!deltaTime || startAnimeFlag) return;
 
     if(CELL_INTERSECTED && !focusFlag){
         darkenFac -= darkenFacSpeedPS * deltaTime;
@@ -1523,10 +1695,6 @@ function updateFocus(){
     ssDarkenMFMaterial.uniforms[ 'darkenFac' ].value = darkenFac;
     ssDarkenMFMaterial.uniforms[ 'focusColorFac' ].value.set(focusColorFac.x, focusColorFac.y, focusColorFac.z);
     ssDarkenMFMaterial.uniforms[ 'focusPos' ].value.set(focusPos.x, focusPos.y);
-}
-
-function framePrint(){
-    
 }
 
 function updatePointLight(){
@@ -1611,9 +1779,19 @@ function setChildrenVisibleByName(parent, name, flag){
 
 function render(){
 
-    rendererCSS.render(sceneCSS, camera);
+    if(!startAnimeFlag){
+        rendererCSS.render(sceneCSS, camera);
+    }
+    
 
-    renderer.setViewport( 0, 0, window.innerWidth, window.innerHeight );
+    // renderer.setViewport( 0, 0, window.innerWidth, window.innerHeight );
+
+    // cellsGroup.visible = false;
+    // cellsGeoGroup.visible = false;
+
+    // renderer.setRenderTarget( null );
+    // renderer.clear();
+    // renderer.render( sceneCells, camera );
 
     if(mixFac != 1){
         renderer.setRenderTarget( renderTargetNucleusDepth );
@@ -1622,12 +1800,14 @@ function render(){
     
     
         renderer.setRenderTarget( renderTargetCell );
+        // renderer.setRenderTarget( null );
         renderer.clear();
         renderer.render( sceneCells, camera );
     
         screenMesh.material = ssDarkenMFMaterial;
         ssDarkenMFMaterial.uniforms[ 'devicePixelRatio' ].value = 1.0;
         renderer.setRenderTarget( renderTargetCellMF );
+        // renderer.setRenderTarget( null );
         renderer.clear();
         renderer.render( sceneScreen, camera );
     }

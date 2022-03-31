@@ -3,6 +3,7 @@
         #shader = null;
         #rootDisplacementFac = 0;
         #time = 0;
+        #layerShow = 0;
 
         constructor(parameters) {
             super();
@@ -37,6 +38,17 @@
             }
         }
 
+        get layerShow(){
+            return this.#layerShow;
+        }
+
+        set layerShow(value){
+            this.#layerShow = value;
+            if(this.#shader){
+                this.#shader.uniforms.layerShow.value = value;
+            }
+        }
+
         onBeforeCompile(shader){
             this.#shader = shader;
             shader.uniforms.rootDisplacementScale = { value: this.rootDisplacementScale };
@@ -45,10 +57,11 @@
             shader.uniforms.rootDisplacementMap1 = { value: this.rootDisplacementMap1 };
             shader.uniforms.rootDisplacementFac = { value: this.#rootDisplacementFac };
             shader.uniforms.time = { value: this.#time };
-            shader.uniforms.layerMax = {value: this.layerMax};
+            shader.uniforms.layerMax = { value: this.layerMax};
             shader.uniforms.noiseMap = { value: this.noiseMap };
             shader.uniforms.depthMap = { value: this.depthMap };
             shader.uniforms.viewPort = { value: this.viewPort };
+            shader.uniforms.layerShow = { value: this.#layerShow };
 
 
             let token = '#include <common>';
@@ -71,6 +84,7 @@
 
                 varying vec2 vUv;
                 // varying float ndcZ;
+                varying float vLayer;
 
         `;
             shader.vertexShader = shader.vertexShader.replace(token, token + insert);
@@ -85,11 +99,13 @@
                 float ratio = 1.0 - exp(-layer / 50.0);
                 transformed += rN * (offset * rootDisplacementScale * ratio + rootDisplacementBias);
                 vUv = uv;
-                vec2 tUV = vUv + time * 0.001;
+                vec2 tUV = vUv + time * 0.05;
                 vec3 dir = normalize(texture2D( noiseMap, vUv ).rgb);
                 
                 float d = texture2D( noiseMap, tUV ).a;
-                transformed += dir * (d - 0.5) * 0.6;
+                transformed += dir * (d - 0.5) * 0.2;
+
+                vLayer = layer;
 
         `;
             shader.vertexShader = shader.vertexShader.replace(token, token + insert);
@@ -114,8 +130,10 @@
             insert = /* glsl */`
                 varying vec2 vUv;
                 // varying float ndcZ;
+                varying float vLayer;
                 uniform sampler2D depthMap;
                 uniform vec2 viewPort;
+                uniform float layerShow;
         `;
             shader.fragmentShader = shader.fragmentShader.replace(token, token + insert);
 
@@ -124,7 +142,7 @@
                 vec2 uvs = vUv;
                 // float winZ = ndcZ / 2.0 + 0.5;
                 float depth = texture(depthMap, gl_FragCoord.xy / viewPort).r;
-                if(depth > (1.0 - gl_FragCoord.z)){
+                if(depth > (1.0 - gl_FragCoord.z) || vLayer > layerShow){
                 // if(depth > winZ){
                     discard;
                 }
@@ -158,6 +176,7 @@
 
             this.rootDisplacementFac = source.rootDisplacementFac;
             this.time = source.time;
+            this.layerShow = source.layerShow;
             
             return this;
         }

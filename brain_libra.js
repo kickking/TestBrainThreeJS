@@ -459,11 +459,11 @@ function render() {
 
     renderer.setViewport( 0, 0, window.innerWidth, window.innerHeight );
 
-    renderer.setRenderTarget( null );
-	renderer.clear();
-    renderer.render( sceneLogo, cameraLogo );
+    // renderer.setRenderTarget( null );
+	// renderer.clear();
+    // renderer.render( sceneLogo, cameraLogo );
 
-   /*  sssPass.render(renderer, renderTargetBrain);
+    sssPass.render(renderer, renderTargetBrain);
 
     libraModelGroup.traverse( function ( object ) {
         object.material = object.materialCopy;
@@ -500,7 +500,7 @@ function render() {
     screeMesh.material = ssShowMaterial;
     renderer.setRenderTarget( null );
 	renderer.clear();
-    renderer.render( sceneScreen, cameraLibra ); */
+    renderer.render( sceneScreen, cameraLibra );
 
     // ssNoiseCombineMaterial.uniforms[ 'tScreen1' ].value = rtBG.texture;
     // ssNoiseCombineMaterial.uniforms[ 'tScreen0' ].value = rtSSCombineSwitch.OutBuffer.texture;

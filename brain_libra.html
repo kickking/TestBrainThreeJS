@@ -5,9 +5,58 @@
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
 		<link type="text/css" rel="stylesheet" href="main.css">
+		<style>
+			#container {
+				position: absolute;
+			}
+
+			#txt-container {
+				position: relative;
+				z-index: 1;
+			}
+
+			.right-container {
+				float: right;
+				width: 50%;
+				height: 700px;
+				/* background-color: blueviolet; */
+			}
+
+			.right-logo {
+				float: left;
+				width: 100%;
+				height: 20%;
+				/* background-color: brown; */
+			}
+
+			.logo {
+				float: right;
+				margin-right: 20%;
+				width: 20%;
+				height: 100%;
+				/* background-color: burlywood; */
+			}
+
+			.logo img {
+				margin-top: 2%;
+				width: 95%;
+				height: 95%;
+			}
+		</style>
 	</head>
 	<body>
-        <!-- <div id="info"><a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> webgl -  multiple canvases - grid</div> -->
+		<div>
+			<div id="container"></div>
+			<div id="txt-container">
+				<div class="right-container">
+					<div class="right-logo">
+						<div class="logo">
+							<img src="image/logo.png">
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
         <script src="build/three.js"></script>
 		<script src="examples/js/libs/dat.gui.min.js"></script>
         <script src="examples/js/controls/OrbitControls.js"></script>

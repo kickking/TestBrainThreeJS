@@ -339,10 +339,23 @@
 
             const _rtSSSAlbedoMaterial = new THREE.MeshBasicMaterial();
 
-            const _rtDepthMaterial = new THREE.ShaderMaterial({
-                vertexShader: THREE.SSSDepthShader.vertexShader,
-                fragmentShader: THREE.SSSDepthShader.fragmentShader,
-            });
+            // const _rtDepthMaterial = new THREE.ShaderMaterial({
+            //     vertexShader: THREE.SSSDepthShader.vertexShader,
+            //     fragmentShader: THREE.SSSDepthShader.fragmentShader,
+            // });
+            const _rtDepthMaterial = (function(){
+                const material = new THREE.MeshBasicMaterial();
+                material.onBeforeCompile = function(shader){
+                    let fShader = shader.fragmentShader.slice(0, shader.fragmentShader.indexOf('#include <output_fragment>'));
+                    let output = /* glsl */`
+                            float depth = 1.0 - gl_FragCoord.z;
+                            gl_FragColor = vec4(vec3(depth), 1.0);
+                            }
+                        `;
+                    shader.fragmentShader = fShader + output;
+                };
+                return material;
+            })();
 
             this.generateNoiseTexture = function() {
                 const width = 4, height = 4;

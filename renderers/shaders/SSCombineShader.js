@@ -185,6 +185,7 @@
             vec3 color = depth0 > depth1 ? screen0 : screen1;
 
             gl_FragColor = vec4(vec3(color), 1.0);
+            gl_FragColor = linearToOutputTexel(gl_FragColor);
         }
         `,
 

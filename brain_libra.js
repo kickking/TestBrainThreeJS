@@ -1,17 +1,20 @@
+import { TWEEN } from './examples/jsm/libs/tween.module.min.js';
+
 let renderer;
 
-let sceneScreen, sceneLibra, sceneBrain, sceneBG;
-let cameraLibra, cameraBrain, cameraBG;
-let controls, controlsBrain, controlBG;
+let sceneScreen, sceneLibra, sceneBrain, sceneLogo;
+let cameraLibra, cameraBrain, cameraLogo;
+let controls, controlsBrain, controlLogo;
 
 let sssPass;
 
-let libraDepthMaterial, bgMaterial, ssCombineMaterial, ssShowMaterial;
+let depthMaterial, bgMaterial, ssCombineMaterial, ssShowMaterial;
 let ssNoiseCombineMaterial, ssNoiseBurntCombineMaterial;
+let magnifyingGlassMaterial;
 
 let renderTargetBrain, renderTargetLibra, renderTargetLibraDepth;
 
-let libraModelGroup, brainModelGroup, brainModel;
+let libraModelGroup, brainModelGroup, brainModel, logoModelGroup;
 
 let stats;
 
@@ -21,7 +24,7 @@ let lightHelper, shadowCameraHelper;
 let lightHelper1, shadowCameraHelper1;
 
 
-let loadDone = false, loadBrainDone = false;
+let modelLibraLoadDone = false, modelLogoLoadDone = false;
 
 let gui;
 const cameraPos = new THREE.Vector3(10,6,12);
@@ -43,31 +46,11 @@ let spotLightLibra, spotLightBrain;
 let screeMesh;
 
 let rtSSCombineSwitch = {
-    InBuffer: new THREE.WebGLRenderTarget( window.innerWidth * 2, window.innerHeight * 2, 
-        { minFilter: THREE.LinearFilter, 
-          magFilter: THREE.NearestFilter,
-          format: THREE.RGBFormat,
-          encoding: THREE.sRGBEncoding,
-        } ),
-    InDepthBuffer: new THREE.WebGLRenderTarget( window.innerWidth * 2, window.innerHeight * 2, 
-        { minFilter: THREE.LinearFilter, 
-            magFilter: THREE.NearestFilter,
-            format: THREE.RGBAFormat,
-            type: THREE.FloatType,
-        } ),
-    OutBuffer: new THREE.WebGLRenderTarget( window.innerWidth * 2, window.innerHeight * 2, 
-        { minFilter: THREE.LinearFilter, 
-            magFilter: THREE.NearestFilter,
-            format: THREE.RGBFormat,
-            encoding: THREE.sRGBEncoding,
-        } ),
-    OutDepthBuffer: new THREE.WebGLRenderTarget( window.innerWidth * 2, window.innerHeight * 2, 
-        { minFilter: THREE.LinearFilter, 
-            magFilter: THREE.NearestFilter,
-            format: THREE.RGBAFormat,
-            type: THREE.FloatType,
-        } ),
-};
+    InBuffer: null,
+    InDepthBuffer: null,
+    OutBuffer: null,
+    OutDepthBuffer: null,
+}
 
 let rtBG = new THREE.WebGLRenderTarget( window.innerWidth * 2, window.innerHeight * 2, 
     { minFilter: THREE.LinearFilter, 
@@ -75,6 +58,10 @@ let rtBG = new THREE.WebGLRenderTarget( window.innerWidth * 2, window.innerHeigh
         format: THREE.RGBFormat,
         encoding: THREE.sRGBEncoding,
     } );
+
+
+let subsurfaceTexture;
+let normalMap;
 
 let burntTexture;
 let noiseTexture;
@@ -85,179 +72,32 @@ let noiseMixParam = {
     duration: 5000,
 };
 
-import { TWEEN } from './examples/jsm/libs/tween.module.min.js';
-
-function switchRtSSCombine(){
-    let tempBuf = rtSSCombineSwitch.InBuffer;
-    rtSSCombineSwitch.InBuffer = rtSSCombineSwitch.OutBuffer;
-    rtSSCombineSwitch.OutBuffer = tempBuf;
-
-    tempBuf = rtSSCombineSwitch.InDepthBuffer;
-    rtSSCombineSwitch.InDepthBuffer = rtSSCombineSwitch.OutDepthBuffer;
-    rtSSCombineSwitch.OutDepthBuffer = tempBuf;
-}
-
 function init() {
-    const container = document.createElement( 'div' );
-	document.body.appendChild( container );
 
     cameraLibra = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.25, 100 );
     cameraLibra.position.set( cameraPos.x, cameraPos.y, cameraPos.z );
     cameraBrain = cameraLibra.clone();
 
-    cameraBG = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.25, 1000 );
-    cameraBG.position.set( 0, 0, 0 );
-    // cameraBG.lookAt(new THREE.Vector3(0, -1, 0.001))
-    // console.log(cameraBG)
-
+    cameraLogo = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.25, 100 );
+    cameraLogo.position.set( 0, 0, 12 );
 
     sceneScreen = new THREE.Scene();
     sceneLibra = new THREE.Scene();
     sceneBrain = new THREE.Scene();
-    sceneBG = new THREE.Scene();
-
-    spotLightLibra = new THREE.SpotLight( 0xffffff, 1.3 );
-    spotLightLibra.angle = Math.PI / 4.3;
-    spotLightLibra.penumbra = 0.1;
-    spotLightLibra.decay = 2;
-    spotLightLibra.distance = 200;
-
-    spotLightLibra.castShadow = true;
-    spotLightLibra.shadow.mapSize.width = 512;
-    spotLightLibra.shadow.mapSize.height = 512;
-    spotLightLibra.shadow.camera.near = 1;
-    spotLightLibra.shadow.camera.far = 20;
-    spotLightLibra.shadow.focus = 1;
-
-    spotLightBrain = spotLightLibra.clone();
+    sceneLogo = new THREE.Scene();
 
 
-    // lightHelper = new THREE.SpotLightHelper( spotLightLibra );
-    // sceneLibra.add( lightHelper );
+    initSpotLight();
 
-    // shadowCameraHelper = new THREE.CameraHelper( spotLightLibra.shadow.camera );
-    // sceneLibra.add( shadowCameraHelper );
-
-    // lightHelper1 = new THREE.SpotLightHelper( spotLightBrain );
-    // sceneBrain.add( lightHelper1 );
-
-    // shadowCameraHelper1 = new THREE.CameraHelper( spotLightBrain.shadow.camera );
-    // sceneBrain.add( shadowCameraHelper1 );
-
-    renderTargetBrain = new THREE.WebGLRenderTarget( window.innerWidth * 2, window.innerHeight * 2, 
-        { minFilter: THREE.LinearFilter, 
-          magFilter: THREE.NearestFilter,
-          format: THREE.RGBFormat,
-          encoding: THREE.sRGBEncoding,
-        } );
-
-    renderTargetLibra = new THREE.WebGLRenderTarget( window.innerWidth * 2, window.innerHeight * 2, 
-        { minFilter: THREE.LinearFilter, 
-          magFilter: THREE.NearestFilter,
-          format: THREE.RGBFormat,
-          encoding: THREE.sRGBEncoding,
-        } );
-
-    renderTargetLibraDepth = new THREE.WebGLRenderTarget( window.innerWidth * 2, window.innerHeight * 2, 
-        { minFilter: THREE.LinearFilter, 
-            magFilter: THREE.NearestFilter,
-            format: THREE.RGBAFormat,
-            type: THREE.FloatType,
-        } );
-
+    initRenderTarget();
     loadEnvironment( Object.keys( environments )[ 0 ] );
 
+    loadTexture();
 
-    bgMaterial = new THREE.ShaderMaterial({
-        uniforms: THREE.UniformsUtils.clone( THREE.EnvShader.uniforms ),
-        vertexShader: THREE.EnvShader.vertexShader,
-        fragmentShader: THREE.EnvShader.fragmentShader,
-        side: THREE.BackSide,
-    });
-    bgMaterial.uniforms[ 'Intensity' ].value = 1.0;
-    const geometryBG = new THREE.SphereGeometry( 1, 60, 40 );
-    const meshBG = new THREE.Mesh( geometryBG, bgMaterial );
-    meshBG.position.set(0,0,0);
-    sceneBG.add( meshBG );
-
-
-    const loader = new THREE.TextureLoader();
-    const subsurfaceTexture = loader.load( 'models/brain/brain-subsurface-color.png' );
-    const normalMap = loader.load( 'models/brain/brain-normal-combine-2.png' );
-    noiseTexture = loader.load( 'textures/brain/noise4.png' );
-    burntTexture = loader.load( 'textures/brain/burnt-edge4.png' );
-
-    sssPass = new THREE.SSSPass(sceneBrain, cameraBrain, window.innerWidth, window.innerHeight);
-    sssPass.setRTMaterialParam({
-        map: subsurfaceTexture,
-        normalMap: normalMap,
-        roughness: 0.3,
-        envMapIntensity: 0.1,
-    });
-    sssPass.noiseTexture = noiseTexture;
-    sssPass.sssRadius = 1.0;
-
-    const pos = new THREE.Vector3(modelPos.x, modelPos.y, modelPos.z);
-    const angle = modelRotate * Math.PI / 180;
-
-
-    new THREE.GLTFLoader()
-    .setPath( 'models/brain_libra/' )
-    .setDRACOLoader( new THREE.DRACOLoader().setDecoderPath( 'models/brain_libra/draco/' ) )
-    .load( 'BrainAndBalance9.glb', function ( gltf ) {
-        libraModelGroup = gltf.scene;
-        libraModelGroup.setRotationFromAxisAngle(new THREE.Vector3(0,1,0), angle);
-        gltf.scene.traverse( function ( object ) {
-            if(object.isMesh){
-                if(object.name === 'table'){
-                    object.receiveShadow = true;
-                }else{
-                    if(object.name === 'bracket'){
-                        object.attach(spotLightLibra);
-                        spotLightLibra.translateY(10.0);
-                        spotLightLibra.target = object;
-
-                    }
-                    object.receiveShadow = true;
-                    object.castShadow = true;
-                    
-                }
-                object.position.set( pos.x, pos.y, pos.z );
-                object.material.envMap = null;
-                object.material.envMapIntensity = 0.1;
-
-                object.materialCopy = object.material;
-            }
-            
-		} );
-        sceneLibra.add( gltf.scene );
-
-        loadDone = true;
-    } );
-
-    new THREE.GLTFLoader()
-    .setPath( 'models/brain/' )
-    .load( 'Brain.gltf', function ( gltf ) {
-        brainModelGroup = gltf.scene;
-        brainModelGroup.setRotationFromAxisAngle(new THREE.Vector3(0,1,0), angle);
-        gltf.scene.traverse( function ( object ) {
-            if(object.isMesh){
-                object.castShadow = true;
-
-                if(object.name === 'brain-low'){
-                    object.attach(spotLightBrain);
-                    spotLightBrain.translateY(10.0);
-                    spotLightBrain.target = object;
-                }
-                object.position.set( pos.x, pos.y, pos.z );
-            }
-            
-		} );
-        sssPass.add(gltf.scene);
-        loadBrainDone = true;
-
-    } );
-
+    initSSS();
+    loadLibraModelAndInit();
+    loadLogoModelAndInit();
+    
     initMaterial();
 
     screeMesh = new THREE.Mesh(new THREE.PlaneGeometry( 2, 2 ), ssCombineMaterial);
@@ -268,12 +108,12 @@ function init() {
     renderer.setSize( window.innerWidth, window.innerHeight );
     // renderer.toneMapping = THREE.ACESFilmicToneMapping;
     // renderer.toneMappingExposure = 1;
+    document.getElementById('container').appendChild( renderer.domElement );
 
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     renderer.outputEncoding = THREE.sRGBEncoding;
-    // renderer.outputEncoding = THREE.LinearEncoding;
     container.appendChild( renderer.domElement );
 
     const axesHelper = new THREE.AxesHelper(1000);
@@ -290,8 +130,8 @@ function init() {
     // controlsBrain.enabled = false;
     // controlsBrain.update();
     
-    controlBG = new THREE.OrbitControls( cameraBG, container );
-    controlBG.target.set( 0, 0, -0.1 );
+    controlLogo = new THREE.OrbitControls( cameraLogo, container );
+    controlLogo.target.set( 0, 0, -0.1 );
 
 
     stats = new Stats();
@@ -306,8 +146,227 @@ function init() {
     });
 }
 
+function initSpotLight(){
+    spotLightLibra = new THREE.SpotLight( 0xffffff, 1.3 );
+    spotLightLibra.angle = Math.PI / 4.3;
+    spotLightLibra.penumbra = 0.1;
+    spotLightLibra.decay = 2;
+    spotLightLibra.distance = 200;
+
+    spotLightLibra.castShadow = true;
+    spotLightLibra.shadow.mapSize.width = 512;
+    spotLightLibra.shadow.mapSize.height = 512;
+    spotLightLibra.shadow.camera.near = 1;
+    spotLightLibra.shadow.camera.far = 20;
+    spotLightLibra.shadow.focus = 1;
+
+    spotLightBrain = spotLightLibra.clone();
+
+    /* lightHelper = new THREE.SpotLightHelper( spotLightLibra );
+    sceneLibra.add( lightHelper );
+
+    shadowCameraHelper = new THREE.CameraHelper( spotLightLibra.shadow.camera );
+    sceneLibra.add( shadowCameraHelper );
+
+    lightHelper1 = new THREE.SpotLightHelper( spotLightBrain );
+    sceneBrain.add( lightHelper1 );
+
+    shadowCameraHelper1 = new THREE.CameraHelper( spotLightBrain.shadow.camera );
+    sceneBrain.add( shadowCameraHelper1 ); */
+}
+
+function switchRtSSCombine(){
+    let tempBuf = rtSSCombineSwitch.InBuffer;
+    rtSSCombineSwitch.InBuffer = rtSSCombineSwitch.OutBuffer;
+    rtSSCombineSwitch.OutBuffer = tempBuf;
+
+    tempBuf = rtSSCombineSwitch.InDepthBuffer;
+    rtSSCombineSwitch.InDepthBuffer = rtSSCombineSwitch.OutDepthBuffer;
+    rtSSCombineSwitch.OutDepthBuffer = tempBuf;
+}
+
+function initSwitchBuffer(){
+    rtSSCombineSwitch.InBuffer = new THREE.WebGLRenderTarget( window.innerWidth * 2, window.innerHeight * 2, 
+        { minFilter: THREE.LinearFilter, 
+          magFilter: THREE.NearestFilter,
+          format: THREE.RGBFormat,
+        } );
+    
+    rtSSCombineSwitch.InDepthBuffer = new THREE.WebGLRenderTarget( window.innerWidth * 2, window.innerHeight * 2, 
+        { minFilter: THREE.LinearFilter, 
+            magFilter: THREE.NearestFilter,
+            format: THREE.RGBAFormat,
+            type: THREE.FloatType,
+        } );
+
+    rtSSCombineSwitch.OutBuffer = new THREE.WebGLRenderTarget( window.innerWidth * 2, window.innerHeight * 2, 
+        { minFilter: THREE.LinearFilter, 
+            magFilter: THREE.NearestFilter,
+            format: THREE.RGBFormat,
+        } );
+
+    rtSSCombineSwitch.OutDepthBuffer = new THREE.WebGLRenderTarget( window.innerWidth * 2, window.innerHeight * 2, 
+        { minFilter: THREE.LinearFilter, 
+            magFilter: THREE.NearestFilter,
+            format: THREE.RGBAFormat,
+            type: THREE.FloatType,
+        } );
+
+}
+
+function initRenderTarget(){
+    initSwitchBuffer();
+
+    renderTargetBrain = new THREE.WebGLRenderTarget( window.innerWidth * 2, window.innerHeight * 2, 
+        { minFilter: THREE.LinearFilter, 
+          magFilter: THREE.NearestFilter,
+          format: THREE.RGBFormat,
+        } );
+
+    renderTargetLibra = new THREE.WebGLRenderTarget( window.innerWidth * 2, window.innerHeight * 2, 
+        { minFilter: THREE.LinearFilter, 
+          magFilter: THREE.NearestFilter,
+          format: THREE.RGBFormat,
+        } );
+
+    renderTargetLibraDepth = new THREE.WebGLRenderTarget( window.innerWidth * 2, window.innerHeight * 2, 
+        { minFilter: THREE.LinearFilter, 
+            magFilter: THREE.NearestFilter,
+            format: THREE.RGBAFormat,
+            type: THREE.FloatType,
+        } );
+}
+
+function loadEnvironment( name ) {
+    if ( environments[ name ].texture !== undefined ) {
+        sceneLibra.environment = environments[ name ].texture;
+        sceneBrain.environment = environments[ name ].texture;
+        sceneLogo.environment = environments[ name ].texture;
+        return;
+
+    }
+
+    const filename = environments[ name ].filename;
+    new THREE.RGBELoader()
+        .setPath( 'textures/equirectangular/' )
+        .load( filename, function ( hdrEquirect ) {
+            hdrEquirect.mapping = THREE.EquirectangularReflectionMapping;
+            sceneLibra.environment = hdrEquirect;
+            sceneBrain.environment = hdrEquirect;
+            sceneLogo.environment = hdrEquirect;
+            environments[ name ].texture = hdrEquirect;
+        } );
+}
+
+function loadTexture(){
+    const loader = new THREE.TextureLoader();
+    subsurfaceTexture = loader.load( 'models/brain/brain-subsurface-color-1k.png' );
+    normalMap = loader.load( 'models/brain/brain-normal-combine-2.png' );
+    noiseTexture = loader.load( 'textures/brain/noise4.png' );
+    burntTexture = loader.load( 'textures/brain/burnt-edge4.png' );
+}
+
+function initSSS(){
+    sssPass = new THREE.SSSPass(sceneBrain, cameraBrain, window.innerWidth, window.innerHeight);
+    sssPass.setRTMaterialParam({
+        map: subsurfaceTexture,
+        normalMap: normalMap,
+        roughness: 0.3,
+        envMapIntensity: 0.1,
+    });
+    sssPass.noiseTexture = noiseTexture;
+    sssPass.sssRadius = 1.0;
+}
+
+let Root;
+let mixer;
+
+function loadLibraModelAndInit(){
+    new THREE.GLTFLoader()
+    .setPath( 'models/brain_libra/' )
+    .setDRACOLoader( new THREE.DRACOLoader().setDecoderPath( 'models/brain_libra/draco/' ) )
+    .load( 'BrainAndBalance20.glb', function ( gltf ) {
+        libraModelGroup = gltf.scene;
+        mixer = new THREE.AnimationMixer( libraModelGroup );
+	    mixer.clipAction( gltf.animations[ 0 ] ).play();
+
+        gltf.scene.traverse( function ( object ) {
+            if(object.isMesh){
+                if(object.name === 'table'){
+                    object.receiveShadow = true;
+                    object.position.set( modelPos.x, modelPos.y, modelPos.z );
+                }else{
+                    if(object.name === 'Brain'){
+                        object.attach(spotLightBrain);
+                        spotLightBrain.translateY(10.0);
+                        spotLightBrain.target = object;
+
+                        object.position.set( modelPos.x, modelPos.y, modelPos.z );
+
+                        brainModel = object;
+                    }
+
+                    object.receiveShadow = true;
+                    object.castShadow = true;
+                }
+                object.material.envMap = null;
+                object.material.envMapIntensity = 0.1;
+                object.materialCopy = object.material;
+            }else if(object.isBone){
+                if(object.name === 'Root'){
+                    Root = object;
+                    object.attach(spotLightLibra);
+                    spotLightLibra.translateY(10.0);
+                    spotLightLibra.target = object;
+                    object.position.set( modelPos.x, modelPos.y, modelPos.z );
+                }
+            }
+		} );
+
+        brainModelGroup = new THREE.Group();
+        brainModelGroup.add(brainModel);
+        sssPass.add(brainModelGroup);
+
+        sceneLibra.add( gltf.scene );
+        modelLibraLoadDone = true;
+    } );
+}
+
+function loadLogoModelAndInit(){
+    new THREE.GLTFLoader()
+    .setPath( 'models/logo/' )
+    .setDRACOLoader( new THREE.DRACOLoader().setDecoderPath( 'models/logo/draco/' ) )
+    .load( 'logo1.glb', function ( gltf ) {
+        logoModelGroup = gltf.scene;
+        gltf.scene.traverse( function ( object ) {
+            if(object.isMesh) {
+                if(object.name === 'Logo'){
+                    // const obj = new THREE.Object3D();
+                    // obj.position.copy(cameraLibra.position);
+                    // obj.rotation.copy(cameraLibra.rotation);
+                    // obj.updateMatrixWorld();
+
+                    // let localPos = new THREE.Vector3(5,3,-10);
+                    // object.position.set( localPos.x, localPos.y, localPos.z );
+                    // object.applyMatrix4(obj.matrixWorld)
+                    // object.scale.setScalar(0.5);
+
+                }
+                object.material.envMap = null;
+                object.material.envMapIntensity = 0.3;
+                object.materialCopy = object.material;
+            }
+        });
+
+        // sceneLogo.add(gltf.scene);
+        sceneLibra.add( gltf.scene );
+        modelLogoLoadDone = true;
+
+    } );
+}
+
 function initMaterial(){
-    libraDepthMaterial = new THREE.ShaderMaterial({
+    depthMaterial = new THREE.ShaderMaterial({
         vertexShader: THREE.DepthShader.vertexShader,
         fragmentShader: THREE.DepthShader.fragmentShader,
     });
@@ -351,6 +410,7 @@ function initMaterial(){
     ssNoiseBurntCombineMaterial.uniforms[ 'tBurnt' ].value = burntTexture;
     ssNoiseBurntCombineMaterial.uniforms[ 'offsetMin' ].value = noiseMixParam.offsetMin;
     ssNoiseBurntCombineMaterial.uniforms[ 'offsetMax' ].value = noiseMixParam.offsetMax;
+
     
 }
 
@@ -366,13 +426,17 @@ function onWindowResize() {
 
 }
 
+const clock = new THREE.Clock();
+
 function animate() {
 
     requestAnimationFrame( animate );
 
+    if(!modelLibraLoadDone || !modelLogoLoadDone) return;
+
     controls.update(); // required if damping enabled
     controlsBrain.update(); // required if damping enabled
-    controlBG.update();
+    controlLogo.update();
 
 
     // lightHelper.update();
@@ -381,7 +445,9 @@ function animate() {
 	// shadowCameraHelper1.update();
 
     stats.update();
-    // updateAngle();
+
+    const delta = clock.getDelta();
+    mixer.update( delta );
 
     TWEEN.update();
 
@@ -389,30 +455,20 @@ function animate() {
 
 }
 
-function updateAngle() {
-    if(!loadDone || !loadBrainDone) return;
-    const angle = controls.getAzimuthalAngle();
-    const delta = angle - currentAzimuthalAngle;
-
-    libraModelGroup.rotateOnAxis(new THREE.Vector3(0,1,0), delta);
-    brainModelGroup.rotateOnAxis(new THREE.Vector3(0,1,0), delta);
-    currentAzimuthalAngle = angle;
-}
-
 function render() {
-    if(!loadDone || !loadBrainDone) return;
 
     renderer.setViewport( 0, 0, window.innerWidth, window.innerHeight );
 
-    renderer.setRenderTarget( rtBG );
-    // renderer.setRenderTarget( null );
-    renderer.clear();
-    renderer.render( sceneBG, cameraBG );
+    renderer.setRenderTarget( null );
+	renderer.clear();
+    renderer.render( sceneLogo, cameraLogo );
 
-    // sssPass.render(renderer, null);
-    sssPass.render(renderer, renderTargetBrain);
+   /*  sssPass.render(renderer, renderTargetBrain);
 
     libraModelGroup.traverse( function ( object ) {
+        object.material = object.materialCopy;
+    } );
+    logoModelGroup.traverse( function ( object ) {
         object.material = object.materialCopy;
     } );
 
@@ -424,7 +480,10 @@ function render() {
 
     // sceneLibra.background = null;
     libraModelGroup.traverse( function ( object ) {
-        object.material = libraDepthMaterial;
+        object.material = depthMaterial;
+    } );
+    logoModelGroup.traverse( function ( object ) {
+        object.material = depthMaterial;
     } );
     renderer.setRenderTarget( renderTargetLibraDepth );
     // renderer.setRenderTarget( null );
@@ -437,11 +496,11 @@ function render() {
 	renderer.clear();
     renderer.render( sceneScreen, cameraLibra );
 
-    // ssShowMaterial.uniforms[ 'tScreen' ].value = rtSSCombineSwitch.OutBuffer.texture;
-    // screeMesh.material = ssShowMaterial;
-    // renderer.setRenderTarget( null );
-	// renderer.clear();
-    // renderer.render( sceneScreen, cameraLibra );
+    ssShowMaterial.uniforms[ 'tScreen' ].value = rtSSCombineSwitch.OutBuffer.texture;
+    screeMesh.material = ssShowMaterial;
+    renderer.setRenderTarget( null );
+	renderer.clear();
+    renderer.render( sceneScreen, cameraLibra ); */
 
     // ssNoiseCombineMaterial.uniforms[ 'tScreen1' ].value = rtBG.texture;
     // ssNoiseCombineMaterial.uniforms[ 'tScreen0' ].value = rtSSCombineSwitch.OutBuffer.texture;
@@ -452,43 +511,14 @@ function render() {
     // renderer.render( sceneScreen, cameraLibra );
 
     
-    ssNoiseBurntCombineMaterial.uniforms[ 'tScreen1' ].value = rtBG.texture;
-    ssNoiseBurntCombineMaterial.uniforms[ 'tScreen0' ].value = rtSSCombineSwitch.OutBuffer.texture;
-    ssNoiseBurntCombineMaterial.uniforms[ 'offset' ].value = noiseMixParam.offset;
-    screeMesh.material = ssNoiseBurntCombineMaterial;
-    renderer.setRenderTarget( null );
-	renderer.clear();
-    renderer.render( sceneScreen, cameraLibra );
+    // ssNoiseBurntCombineMaterial.uniforms[ 'tScreen1' ].value = rtBG.texture;
+    // ssNoiseBurntCombineMaterial.uniforms[ 'tScreen0' ].value = rtSSCombineSwitch.OutBuffer.texture;
+    // ssNoiseBurntCombineMaterial.uniforms[ 'offset' ].value = noiseMixParam.offset;
+    // screeMesh.material = ssNoiseBurntCombineMaterial;
+    // renderer.setRenderTarget( null );
+	// renderer.clear();
+    // renderer.render( sceneScreen, cameraLibra );
 
-}
-
-function loadEnvironment( name ) {
-    if ( environments[ name ].texture !== undefined ) {
-
-        sceneLibra.environment = environments[ name ].texture;
-        sceneBrain.environment = environments[ name ].texture;
-
-        bgMaterial.uniforms[ 'tBackground' ].value = environments[ name ].texture;
-
-        return;
-
-    }
-
-    const filename = environments[ name ].filename;
-    new THREE.RGBELoader()
-        .setPath( 'textures/equirectangular/' )
-        .load( filename, function ( hdrEquirect ) {
-
-            hdrEquirect.mapping = THREE.EquirectangularReflectionMapping;
-
-            bgMaterial.uniforms[ 'tBackground' ].value = hdrEquirect;
-
-            sceneLibra.environment = hdrEquirect;
-            sceneBrain.environment = hdrEquirect;
-
-            environments[ name ].texture = hdrEquirect;
-
-        } );
 }
 
 function buildGui() {
@@ -549,6 +579,8 @@ function buildGui() {
                 object.position.x = value;
             }
 		} );
+
+        Root.position.setX(value);
     } );
     folder1.add(GeneralParams, 'modelPosY', -30, 30, 0.1).onChange( function ( value ) {
         libraModelGroup.traverse( function ( object ) {
@@ -561,6 +593,7 @@ function buildGui() {
                 object.position.y = value;
             }
 		} );
+        Root.position.setY(value);
     } );
     folder1.add(GeneralParams, 'modelPosZ', -30, 30, 0.1).onChange( function ( value ) {
         libraModelGroup.traverse( function ( object ) {
@@ -573,6 +606,7 @@ function buildGui() {
                 object.position.z = value;
             }
 		} );
+        Root.position.setZ(value);
     } );
 
     folder1.add(GeneralParams, 'controlTargetX', -30, 30, 0.1).onChange( function ( value ) {
@@ -649,6 +683,7 @@ function buildGui() {
     } );
     // folder1.open();
     // folder2.open();
+    gui.close();
 }
 
 init();

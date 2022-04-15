@@ -151,8 +151,6 @@ function init(){
 
     initMaterial();
 
-    // initSphereParticl();
-
     initCSSTitle();
 
     initCameraObject();
@@ -179,8 +177,8 @@ function init(){
     rendererCSS.setSize( window.innerWidth, window.innerHeight );
     document.getElementById('txt-container').appendChild( rendererCSS.domElement );
 
-    const axesHelper = new THREE.AxesHelper(1000);
-    sceneScreen.add(axesHelper);
+    // const axesHelper = new THREE.AxesHelper(1000);
+    // sceneScreen.add(axesHelper);
 
     // controls = new THREE.OrbitControls( camera, container );
 
@@ -325,43 +323,8 @@ function initCSSObject(obj, focusParam, outerClass, innerClass, clickFunc) {
 
 }
 
-// function initSphereParticl(){
-//     const particleGeometry = new THREE.BufferGeometry();
-//     const particleVertices = [];
-//     const particleRadii = [];
-//     const particleSphereCoords = [];
-//     const particleUVs = [];
-//     const particleColors = [];
-//     const particleColor = new THREE.Color();
-//     const particleColorScalar = 0.3;
-
-//     for ( let i = 0; i < 5000; i ++ ) {
-//         const r = 0.0 + 
-//         Math.random() * (5.0 - 0.0);
-//         const theta = Math.random() * Math.PI; //zenith
-//         const phi = Math.random() * Math.PI * 2; //Azimuth
-//         const x = r * Math.sin(phi) * Math.cos(theta);
-//         const y = r * Math.sin(phi) * Math.sin(theta);
-//         const z = r * Math.cos(phi);
-
-//         particleVertices.push( x, y, z );
-//         particleRadii.push(r);
-//         particleSphereCoords.push(theta, phi);
-//         particleUVs.push(Math.random(), Math.random());
-
-//         particleColor.setRGB(Math.random(), Math.random(), Math.random()).multiplyScalar(particleColorScalar);
-//         particleColors.push(particleColor.r, particleColor.g, particleColor.b);
-                
-//     }
-
-//     particleGeometry.setAttribute( 'position', new THREE.Float32BufferAttribute( particleVertices, 3 ) );
-//     particleGeometry.setAttribute( 'radius', new THREE.Float32BufferAttribute( particleRadii, 1 ) );
-//     particleGeometry.setAttribute( 'sphereCoord', new THREE.Float32BufferAttribute( particleSphereCoords, 2 ) );
-//     particleGeometry.setAttribute( 'uv', new THREE.Float32BufferAttribute( particleUVs, 2 ) );
-//     particleGeometry.setAttribute( 'color', new THREE.Float32BufferAttribute( particleColors, 3 ) );
-//     particleMesh = new THREE.Points( particleGeometry, spherePointsMaterial );
-//     sceneCells.add(particleMesh);
-// }
+const brainParticleRadiusMin = 2;
+const brainParticleRadiusMax = 5;
 
 function initBrainParticleMesh(){
     const posArray = brainParticleMesh.geometry.attributes.position.array;
@@ -373,8 +336,8 @@ function initBrainParticleMesh(){
     const particleColorScalar = 0.2;
 
     for(let i = 0; i < posArray.length; i += 3){
-        const radius = 0.0 + 
-        Math.random() * (5.0 - 0.0);
+        const radius = brainParticleRadiusMin + 
+        Math.random() * (brainParticleRadiusMax - brainParticleRadiusMin);
         const theta = Math.random() * Math.PI; //zenith
         const phi = Math.random() * Math.PI * 2; //Azimuth
         const x = radius * Math.sin(phi) * Math.cos(theta);
@@ -495,13 +458,15 @@ function initCellMeshes(){
         nucleusList.push(nucleus);
 
 
-        const membraneHigh = cellMeshes.membraneHigh.clone();
+        // const membraneHigh = cellMeshes.membraneHigh.clone();
+        const membraneHigh = cellMeshes.membrane.clone();
         membraneHigh.material = membraneMaterial.clone();
         membraneHigh.scale.setScalar(cellScale);
         membraneHighList.push(membraneHigh);
         cellGeo.add(membraneHigh);
 
-        const nucleusHigh = cellMeshes.nucleusHigh.clone();
+        // const nucleusHigh = cellMeshes.nucleusHigh.clone();
+        const nucleusHigh = cellMeshes.nucleus.clone();
         nucleusHigh.material = nucleusMaterial.clone();
         nucleusHigh.scale.setScalar(cellScale);
         nucleusHighList.push(nucleusHigh);
@@ -1354,7 +1319,7 @@ function onPointerMove( event ) {
 let isCameraLookAtTarget = true;
 
 function updateCamera(){
-    if(!focusAnimFlag && !startAnimeFlag){
+    if(!focusAnimFlag){
         updateCameraPitchAndYaw();
     }
 
